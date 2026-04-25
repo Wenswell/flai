@@ -1,14 +1,28 @@
 {
   "name": "flai",
   "version": "0.1.0",
-  "private": true,
+  "description": "Lightweight AI workflow context initializer for Codex and Claude Code.",
   "type": "module",
   "packageManager": "pnpm@10.0.0",
+  "main": "./src/cli.mjs",
+  "exports": {
+    ".": "./src/cli.mjs",
+    "./context": "./src/context.mjs"
+  },
   "bin": {
-    "flai": "src/cli.mjs"
+    "flai": "./src/cli.mjs"
+  },
+  "files": [
+    "src",
+    "templates",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "flai": "node src/cli.mjs",
+    "pack:check": "npm pack --dry-run",
     "test": "node --test tests/*.test.mjs"
   },
   "engines": {
