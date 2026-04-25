@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { initProject, initUser, runCli, uninstallUser, updateUser } from "../src/cli.mjs";
+import { initProject, initUser, runCli, selfUpdate, uninstallUser, updateUser } from "../src/cli.mjs";
 
 async function tempRoot(name) {
   return mkdtemp(path.join(tmpdir(), `ai-admin-${name}-`));
@@ -55,6 +55,24 @@ test("updateUser updates managed files and preserves local edits by default", as
   assert.equal(result.conflicts.includes(path.join(userFlaiDir, "workflow.md")), true);
   assert.match(await readFile(path.join(userFlaiDir, "preferences.md"), "utf8"), /Default stack/);
   assert.equal(await readFile(path.join(userFlaiDir, "workflow.md"), "utf8"), localWorkflow);
+});
+
+test("selfUpdate installs the latest package and runs update-user through the flai binary", async () => {
+  const root = await tempRoot("self-update");
+  const userFlaiDir = path.join(root, ".flai");
+  const calls = [];
+
+  const result = await selfUpdate({
+    userFlaiDir,
+    force: true,
+    async runCommand(command, args) {
+      calls.push([command, ...args]);
+    },
+  });
+
+  assert.equal(result.packageName, "@wenswell/flai");
+  assert.deepEqual(calls[0].slice(1), ["install", "-g", "@wenswell/flai@latest"]);
+  assert.deepEqual(calls[1], ["flai", "update-user", userFlaiDir, "-f"]);
 });
 
 test("uninstallUser requires explicit confirmation and removes only the user directory", async () => {
@@ -191,5 +209,6 @@ test("runCli prints help for help command", async () => {
   assert.match(stdout.output, /Initialize a project/);
   assert.match(stdout.output, /Initialize user-level defaults/);
   assert.match(stdout.output, /Update managed user defaults/);
+  assert.match(stdout.output, /Update the global flai package/);
   assert.match(stdout.output, /Print startup context/);
 });

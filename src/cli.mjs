@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFile } from "node:child_process";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -8,6 +9,7 @@ import { pathToFileURL } from "node:url";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { promisify } from "node:util";
 
 import { buildContext } from "./context.mjs";
 
@@ -16,6 +18,7 @@ const ROOT_DIR = path.resolve(SCRIPT_DIR, "..");
 const TEMPLATES_DIR = path.join(ROOT_DIR, "templates");
 const PACKAGE_JSON = JSON.parse(await readFile(path.join(ROOT_DIR, "package.json"), "utf8"));
 const USER_MANIFEST = ".manifest.json";
+const execFileAsync = promisify(execFile);
 
 function normalize(value) {
   return path.resolve(value);
@@ -158,6 +161,32 @@ export async function updateUser(options = {}) {
   return result;
 }
 
+async function defaultRunCommand(command, args) {
+  await execFileAsync(command, args, { windowsHide: true });
+}
+
+export async function selfUpdate(options = {}) {
+  const userFlaiDir = normalize(options.userFlaiDir ?? path.join(os.homedir(), ".flai"));
+  const runCommand = options.runCommand ?? defaultRunCommand;
+  const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+  const flaiCommand = process.env.FLAI_BIN || "flai";
+  const npmArgs = ["install", "-g", `${PACKAGE_JSON.name}@latest`];
+  const updateUserArgs = ["update-user", userFlaiDir];
+  const result = { packageName: PACKAGE_JSON.name, userFlaiDir, commands: [] };
+
+  if (options.force) {
+    updateUserArgs.push("-f");
+  }
+
+  await runCommand(npmCommand, npmArgs);
+  result.commands.push([npmCommand, ...npmArgs].join(" "));
+
+  await runCommand(flaiCommand, updateUserArgs);
+  result.commands.push([flaiCommand, ...updateUserArgs].join(" "));
+
+  return result;
+}
+
 export async function uninstallUser(options = {}) {
   const userFlaiDir = normalize(options.userFlaiDir ?? path.join(os.homedir(), ".flai"));
   if (!options.confirm) {
@@ -238,6 +267,7 @@ function usage() {
   pnpm flai init [path] [-f]              Initialize a project with .flai docs and hooks
   pnpm flai user [path] [-f]              Initialize user-level defaults, usually ~/.flai
   pnpm flai update-user [path] [-f]       Update managed user defaults from installed templates
+  pnpm flai self-update [path] [-f]       Update the global flai package, then user defaults
   pnpm flai uninstall-user [path] -f      Remove user-level defaults; requires -f
   pnpm flai context [path] [--max <chars>] Print startup context for a project
   pnpm flai help                          Show this help
@@ -248,7 +278,9 @@ function printResult(stdout, label, result) {
   stdout.write(`${label}\n`);
   if (result.userFlaiDir) stdout.write(`userFlaiDir: ${result.userFlaiDir}\n`);
   if (result.repoDir) stdout.write(`repoDir: ${result.repoDir}\n`);
+  if (result.packageName) stdout.write(`package: ${result.packageName}\n`);
   if (result.removed) stdout.write(`removed: ${result.removed}\n`);
+  if (result.commands?.length) stdout.write(`commands:\n${result.commands.map((item) => `- ${item}`).join("\n")}\n`);
   if (result.created?.length) stdout.write(`created:\n${result.created.map((item) => `- ${item}`).join("\n")}\n`);
   if (result.updated?.length) stdout.write(`updated:\n${result.updated.map((item) => `- ${item}`).join("\n")}\n`);
   if (result.skipped?.length) stdout.write(`skipped:\n${result.skipped.map((item) => `- ${item}`).join("\n")}\n`);
@@ -270,6 +302,11 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
 
   if (args.command === "update-user") {
     printResult(stdout, "Updated user .flai data.", await updateUser(args));
+    return;
+  }
+
+  if (args.command === "self-update") {
+    printResult(stdout, "Updated flai package and user .flai data.", await selfUpdate(args));
     return;
   }
 

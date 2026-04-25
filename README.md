@@ -22,6 +22,7 @@ npm install -g @your-scope/flai
 flai init [path] [-f]
 flai user [path] [-f]
 flai update-user [path] [-f]
+flai self-update [path] [-f]
 flai uninstall-user [path] -f
 flai context [path] [--max <chars>]
 flai help
@@ -43,6 +44,12 @@ Update the installed package first, then update user defaults:
 ```bash
 npm update -g @wenswell/flai
 flai update-user
+```
+
+Or run both steps:
+
+```bash
+flai self-update
 ```
 
 ## Local Test Before Publishing
