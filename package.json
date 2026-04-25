@@ -3,7 +3,7 @@
   "version": "0.1.4",
   "description": "Lightweight AI workflow context initializer for Codex and Claude Code.",
   "type": "module",
-  "packageManager": "pnpm@10.0.0",
+  "packageManager": "pnpm@10.33.2",
   "main": "./src/cli.mjs",
   "exports": {
     ".": "./src/cli.mjs",
@@ -26,6 +26,6 @@
     "test": "node --test tests/*.test.mjs"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   }
 }
