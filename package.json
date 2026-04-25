@@ -1,6 +1,6 @@
 {
   "name": "@wenswell/flai",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Lightweight AI workflow context initializer for Codex and Claude Code.",
   "type": "module",
   "packageManager": "pnpm@10.33.2",
