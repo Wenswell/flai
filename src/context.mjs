@@ -6,8 +6,7 @@ import path from "node:path";
 import process from "node:process";
 
 const DEFAULT_MAX_CHARS = 5000;
-const USER_DOCS = ["preferences.md", "workflow.md", "context-policy.md", "failure-patterns.md"];
-const PROJECT_DOCS = ["project.md", "now.md", "context-policy.md", "issues.md"];
+const USER_DOCS = ["preferences.md", "workflow.md", "failure-patterns.md"];
 
 function normalizePath(value) {
   return value.replace(/\\/g, "/");

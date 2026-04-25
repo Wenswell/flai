@@ -13,7 +13,7 @@ Describe {{PROJECT_NAME}}.
 
 ## Commands
 
-- Print context: `node .flai/scripts/context-start.mjs`
+- Print context: `flai context`
 
 ## Conventions
 

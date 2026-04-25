@@ -11,7 +11,7 @@ async function tempRoot(name) {
   return mkdtemp(path.join(tmpdir(), `ai-admin-${name}-`));
 }
 
-test("initUser creates user-level preference and workflow files without overwriting", async () => {
+test("initUser creates only user-level defaults without overwriting", async () => {
   const root = await tempRoot("user");
   const userFlaiDir = path.join(root, ".flai");
 
@@ -23,9 +23,9 @@ test("initUser creates user-level preference and workflow files without overwrit
   assert.equal(result.created.includes(path.join(userFlaiDir, "workflow.md")), true);
   assert.equal(result.skipped.includes(path.join(userFlaiDir, "preferences.md")), true);
   assert.equal(await readFile(path.join(userFlaiDir, "preferences.md"), "utf8"), "# Custom\n\nKeep this.\n");
-  assert.equal(existsSync(path.join(userFlaiDir, "context-policy.md")), true);
   assert.equal(existsSync(path.join(userFlaiDir, "failure-patterns.md")), true);
-  assert.equal(existsSync(path.join(userFlaiDir, "memories.md")), true);
+  assert.equal(existsSync(path.join(userFlaiDir, "context-policy.md")), false);
+  assert.equal(existsSync(path.join(userFlaiDir, "memories.md")), false);
 });
 
 test("uninstallUser requires explicit confirmation and removes only the user directory", async () => {
@@ -57,6 +57,8 @@ test("initProject creates project docs, hooks, and fallback instructions", async
   assert.equal(existsSync(path.join(repoDir, ".flai", "project.md")), true);
   assert.equal(existsSync(path.join(repoDir, ".flai", "now.md")), true);
   assert.equal(existsSync(path.join(repoDir, ".flai", "context-policy.md")), true);
+  assert.equal(existsSync(path.join(repoDir, ".flai", "failure-patterns.md")), false);
+  assert.equal(existsSync(path.join(repoDir, ".flai", "issues.md")), false);
   assert.equal(existsSync(path.join(repoDir, ".codex", "hooks.json")), true);
   assert.equal(existsSync(path.join(repoDir, ".codex", "hooks", "session-start.mjs")), true);
   assert.equal(existsSync(path.join(repoDir, ".claude", "settings.json")), true);
@@ -67,7 +69,7 @@ test("initProject creates project docs, hooks, and fallback instructions", async
   assert.match(claudeHook, /file:\/\/\//);
   assert.doesNotMatch(codexHook, /\.flai\/scripts|\.flai\\scripts/);
   assert.doesNotMatch(claudeHook, /\.flai\/scripts|\.flai\\scripts/);
-  assert.equal(result.created.length > 8, true);
+  assert.equal(result.created.length > 6, true);
 });
 
 test("initProject preserves existing files unless force is enabled", async () => {
@@ -82,7 +84,7 @@ test("initProject preserves existing files unless force is enabled", async () =>
 
   const second = await initProject({ repoDir, force: true });
   assert.equal(second.created.includes(agentsPath), true);
-  assert.match(await readFile(agentsPath, "utf8"), /SessionStart/);
+  assert.match(await readFile(agentsPath, "utf8"), /\.flai\/context-policy\.md/);
 });
 
 function createWritable() {
