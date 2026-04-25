@@ -1,5 +1,5 @@
 {
-  "name": "flai",
+  "name": "@wenswell/flai",
   "version": "0.1.2",
   "description": "Lightweight AI workflow context initializer for Codex and Claude Code.",
   "type": "module",
