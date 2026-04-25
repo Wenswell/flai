@@ -37,9 +37,10 @@ jobs:
         run: pnpm pack:check
 
       - name: Check version
-        run: npm --version
-        run: node --version
-        run: npm whoami
+        run: |
+          npm --version
+          node --version
+          npm whoami
 
       - name: Publish to npm
         run: npm publish --provenance --access public
