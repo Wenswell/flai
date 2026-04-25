@@ -2,6 +2,7 @@
 
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
 import os from "node:os";
@@ -13,6 +14,8 @@ import { buildContext } from "./context.mjs";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(SCRIPT_DIR, "..");
 const TEMPLATES_DIR = path.join(ROOT_DIR, "templates");
+const PACKAGE_JSON = JSON.parse(await readFile(path.join(ROOT_DIR, "package.json"), "utf8"));
+const USER_MANIFEST = ".manifest.json";
 
 function normalize(value) {
   return path.resolve(value);
@@ -29,6 +32,10 @@ async function writeIfMissing(filePath, content, result, force = false) {
 
   await writeFile(target, content, "utf8");
   result.created.push(target);
+}
+
+function sha256(text) {
+  return createHash("sha256").update(text).digest("hex");
 }
 
 async function listFilesRecursive(dir, base = dir) {
@@ -52,16 +59,102 @@ function renderTemplate(text, values) {
     .replaceAll("{{CONTEXT_MODULE_URL}}", values.contextModuleUrl ?? "");
 }
 
+async function readJson(filePath, fallback) {
+  try {
+    return JSON.parse(await readFile(filePath, "utf8"));
+  } catch {
+    return fallback;
+  }
+}
+
+async function readUserTemplates() {
+  const userTemplateDir = path.join(TEMPLATES_DIR, "user");
+  const templates = [];
+  for (const name of await listFilesRecursive(userTemplateDir)) {
+    const content = await readFile(path.join(userTemplateDir, name), "utf8");
+    templates.push({ name, content, sha256: sha256(content) });
+  }
+  return templates;
+}
+
+async function writeUserManifest(userFlaiDir, files) {
+  await writeFile(
+    path.join(userFlaiDir, USER_MANIFEST),
+    `${JSON.stringify(
+      {
+        package: PACKAGE_JSON.name,
+        version: PACKAGE_JSON.version,
+        updatedAt: new Date().toISOString(),
+        files,
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+}
+
 export async function initUser(options = {}) {
   const userFlaiDir = normalize(options.userFlaiDir ?? path.join(os.homedir(), ".flai"));
   const result = { created: [], skipped: [], userFlaiDir };
+  const manifestFiles = {};
 
-  const userTemplateDir = path.join(TEMPLATES_DIR, "user");
-  for (const name of await listFilesRecursive(userTemplateDir)) {
-    const content = await readFile(path.join(userTemplateDir, name), "utf8");
-    await writeIfMissing(path.join(userFlaiDir, name), content, result, Boolean(options.force));
+  for (const template of await readUserTemplates()) {
+    const target = path.join(userFlaiDir, template.name);
+    await writeIfMissing(target, template.content, result, Boolean(options.force));
+    if (Boolean(options.force) || !existsSync(target) || (await readFile(target, "utf8")) === template.content) {
+      manifestFiles[template.name] = { sha256: template.sha256 };
+    }
   }
 
+  await mkdir(userFlaiDir, { recursive: true });
+  await writeUserManifest(userFlaiDir, manifestFiles);
+  return result;
+}
+
+export async function updateUser(options = {}) {
+  const userFlaiDir = normalize(options.userFlaiDir ?? path.join(os.homedir(), ".flai"));
+  const result = { created: [], updated: [], skipped: [], conflicts: [], userFlaiDir };
+  const previous = await readJson(path.join(userFlaiDir, USER_MANIFEST), { files: {} });
+  const manifestFiles = {};
+
+  await mkdir(userFlaiDir, { recursive: true });
+
+  for (const template of await readUserTemplates()) {
+    const target = path.join(userFlaiDir, template.name);
+    const previousHash = previous.files?.[template.name]?.sha256;
+
+    if (!existsSync(target)) {
+      await writeFile(target, template.content, "utf8");
+      result.created.push(target);
+      manifestFiles[template.name] = { sha256: template.sha256 };
+      continue;
+    }
+
+    const current = await readFile(target, "utf8");
+    const currentHash = sha256(current);
+
+    if (options.force || (previousHash && currentHash === previousHash)) {
+      if (current !== template.content) {
+        await writeFile(target, template.content, "utf8");
+        result.updated.push(target);
+      } else {
+        result.skipped.push(target);
+      }
+      manifestFiles[template.name] = { sha256: template.sha256 };
+      continue;
+    }
+
+    if (currentHash === template.sha256) {
+      result.skipped.push(target);
+      manifestFiles[template.name] = { sha256: template.sha256 };
+      continue;
+    }
+
+    result.conflicts.push(target);
+  }
+
+  await writeUserManifest(userFlaiDir, manifestFiles);
   return result;
 }
 
@@ -144,6 +237,7 @@ function usage() {
   return `Usage:
   pnpm flai init [path] [-f]              Initialize a project with .flai docs and hooks
   pnpm flai user [path] [-f]              Initialize user-level defaults, usually ~/.flai
+  pnpm flai update-user [path] [-f]       Update managed user defaults from installed templates
   pnpm flai uninstall-user [path] -f      Remove user-level defaults; requires -f
   pnpm flai context [path] [--max <chars>] Print startup context for a project
   pnpm flai help                          Show this help
@@ -156,7 +250,9 @@ function printResult(stdout, label, result) {
   if (result.repoDir) stdout.write(`repoDir: ${result.repoDir}\n`);
   if (result.removed) stdout.write(`removed: ${result.removed}\n`);
   if (result.created?.length) stdout.write(`created:\n${result.created.map((item) => `- ${item}`).join("\n")}\n`);
+  if (result.updated?.length) stdout.write(`updated:\n${result.updated.map((item) => `- ${item}`).join("\n")}\n`);
   if (result.skipped?.length) stdout.write(`skipped:\n${result.skipped.map((item) => `- ${item}`).join("\n")}\n`);
+  if (result.conflicts?.length) stdout.write(`conflicts:\n${result.conflicts.map((item) => `- ${item}`).join("\n")}\n`);
 }
 
 export async function runCli({ argv = process.argv, stdout = process.stdout, stderr = process.stderr } = {}) {
@@ -169,6 +265,11 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
 
   if (args.command === "user") {
     printResult(stdout, "Initialized user .flai data.", await initUser(args));
+    return;
+  }
+
+  if (args.command === "update-user") {
+    printResult(stdout, "Updated user .flai data.", await updateUser(args));
     return;
   }
 

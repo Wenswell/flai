@@ -21,6 +21,7 @@ npm install -g @your-scope/flai
 ```bash
 flai init [path] [-f]
 flai user [path] [-f]
+flai update-user [path] [-f]
 flai uninstall-user [path] -f
 flai context [path] [--max <chars>]
 flai help
@@ -34,6 +35,15 @@ flai init .
 ```
 
 `flai init` creates project `.flai` docs plus Codex and Claude Code hook adapters. Runtime code stays in the installed npm package.
+
+`flai update-user` updates user defaults from the installed package templates. It only overwrites files still matching the previous managed template. Locally edited files are reported as conflicts unless `-f` is used.
+
+Update the installed package first, then update user defaults:
+
+```bash
+npm update -g @wenswell/flai
+flai update-user
+```
 
 ## Local Test Before Publishing
 

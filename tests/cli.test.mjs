@@ -1,14 +1,19 @@
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { initProject, initUser, runCli, uninstallUser } from "../src/cli.mjs";
+import { initProject, initUser, runCli, uninstallUser, updateUser } from "../src/cli.mjs";
 
 async function tempRoot(name) {
   return mkdtemp(path.join(tmpdir(), `ai-admin-${name}-`));
+}
+
+function sha256(text) {
+  return createHash("sha256").update(text).digest("hex");
 }
 
 test("initUser creates only user-level defaults without overwriting", async () => {
@@ -26,6 +31,30 @@ test("initUser creates only user-level defaults without overwriting", async () =
   assert.equal(existsSync(path.join(userFlaiDir, "failure-patterns.md")), true);
   assert.equal(existsSync(path.join(userFlaiDir, "context-policy.md")), false);
   assert.equal(existsSync(path.join(userFlaiDir, "memories.md")), false);
+  assert.equal(existsSync(path.join(userFlaiDir, ".manifest.json")), true);
+});
+
+test("updateUser updates managed files and preserves local edits by default", async () => {
+  const root = await tempRoot("user-update");
+  const userFlaiDir = path.join(root, ".flai");
+  const oldPreferences = "# Preferences\n\n- Old template.\n";
+  const localWorkflow = "# Workflow\n\nLocal edit.\n";
+
+  await mkdir(userFlaiDir, { recursive: true });
+  await writeFile(path.join(userFlaiDir, "preferences.md"), oldPreferences, "utf8");
+  await writeFile(path.join(userFlaiDir, "workflow.md"), localWorkflow, "utf8");
+  await writeFile(
+    path.join(userFlaiDir, ".manifest.json"),
+    `${JSON.stringify({ files: { "preferences.md": { sha256: sha256(oldPreferences) } } })}\n`,
+    "utf8",
+  );
+
+  const result = await updateUser({ userFlaiDir });
+
+  assert.equal(result.updated.includes(path.join(userFlaiDir, "preferences.md")), true);
+  assert.equal(result.conflicts.includes(path.join(userFlaiDir, "workflow.md")), true);
+  assert.match(await readFile(path.join(userFlaiDir, "preferences.md"), "utf8"), /Default stack/);
+  assert.equal(await readFile(path.join(userFlaiDir, "workflow.md"), "utf8"), localWorkflow);
 });
 
 test("uninstallUser requires explicit confirmation and removes only the user directory", async () => {
@@ -117,7 +146,7 @@ test("runCli supports concise pnpm-style project init command", async () => {
   assert.equal(existsSync(path.join(repoDir, ".flai", "project.md")), true);
 });
 
-test("runCli supports concise user init and uninstall commands", async () => {
+test("runCli supports concise user init, update, and uninstall commands", async () => {
   const root = await tempRoot("cli-user");
   const userDir = path.join(root, ".flai");
   const stdout = createWritable();
@@ -130,6 +159,15 @@ test("runCli supports concise user init and uninstall commands", async () => {
 
   assert.match(stdout.output, /Initialized user \.flai data/);
   assert.equal(existsSync(path.join(userDir, "preferences.md")), true);
+
+  const updateStdout = createWritable();
+  await runCli({
+    argv: ["node", "flai", "update-user", userDir],
+    stdout: updateStdout.stream,
+    stderr: createWritable().stream,
+  });
+
+  assert.match(updateStdout.output, /Updated user \.flai data/);
 
   await runCli({
     argv: ["node", "flai", "uninstall-user", userDir, "-f"],
@@ -152,5 +190,6 @@ test("runCli prints help for help command", async () => {
   assert.match(stdout.output, /pnpm flai init/);
   assert.match(stdout.output, /Initialize a project/);
   assert.match(stdout.output, /Initialize user-level defaults/);
+  assert.match(stdout.output, /Update managed user defaults/);
   assert.match(stdout.output, /Print startup context/);
 });
