@@ -16,20 +16,22 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
+      
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          registry-url: https://registry.npmjs.org
-
+          node-version: 22
+          cache: 'pnpm'
+      
       - run: corepack enable
-
-      - run: pnpm install --no-frozen-lockfile
-
-      - run: pnpm test
-
-      - run: pnpm pack:check
-
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Run tests
+        run: pnpm test
+      
+      - name: Check package contents
+        run: pnpm pack:check
+      
+      - name: Publish to npm
+        run: npm publish --provenance --access public
