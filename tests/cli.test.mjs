@@ -53,7 +53,7 @@ test("updateUser updates managed files and preserves local edits by default", as
 
   assert.equal(result.updated.includes(path.join(userFlaiDir, "preferences.md")), true);
   assert.equal(result.conflicts.includes(path.join(userFlaiDir, "workflow.md")), true);
-  assert.match(await readFile(path.join(userFlaiDir, "preferences.md"), "utf8"), /Default stack/);
+  assert.match(await readFile(path.join(userFlaiDir, "preferences.md"), "utf8"), /默认技术栈/);
   assert.equal(await readFile(path.join(userFlaiDir, "workflow.md"), "utf8"), localWorkflow);
 });
 

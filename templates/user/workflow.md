@@ -1,15 +1,37 @@
-# Workflow
+# 工作流
 
-Default mode: tiny.
+默认模式：tiny。
+
+- 收到用户指令后，先用一句话说明对指令的理解。
+- 准备修改代码或文件前，先说明修改范围。
+- 用户询问方案或复杂问题时，先按高水平实践思考。
+- 如果信息不足，先提问；问题可以一次提出多个，但必须互不依赖。
+- 追问到足够理解真实目标后，再给方案。
+- 构思方案或实现代码时，检查是否参考了成熟做法。
+- 如果存在明显更简单或更稳的方向，优先采用。
+- 除非用户明确要求，默认简化实现，避免过度设计。
+- 默认只做 `check`、`build` 或最小必要验证，不主动扩展测试范围。
+- 执行方案或改动前，先判断任务复杂度。
+- 低复杂度任务优先一次实现、一次验证。
+- 禁止用 `Search .`、`Search *` 或等价方式一次性列出全部文件，避免污染上下文。
+- 查找文件时优先使用有范围的路径或模式。
+- 除非必要或用户明确要求，不查看 git 历史、dist、build 产物、锁文件等低价值上下文。
+- 优先忠于当前代码和当前文件状态。
+- 代码或文件修改结束后，说明本次修改的 commit message。
+- 如果当前目录是 git 项目，提交本次变动范围内的文件。
+- 禁止操作父目录的 git 仓库。
+- 修改结束前，检查本次相关文件是否有必要、可精简、可合并、可删除。
+- 清理明显多余的文件。
+- 如果单个文件明显偏大，优先考虑拆分。
 
 ## tiny
 
-Small, clear, low-risk changes. Do the work directly. Run the smallest useful verification. Do not create task docs.
+小型、明确、低风险改动。直接完成工作。只做最小有效验证。不创建任务文档。
 
 ## normal
 
-Bounded work with several files or moderate uncertainty. Use a short plan and relevant verification.
+范围明确但涉及多个文件，或存在中等不确定性。使用简短计划和相关验证。
 
 ## deep
 
-Use only for vague, architectural, migration, security, permission, public API, or repeatedly failing work.
+仅用于需求模糊、架构、迁移、安全、权限、公共 API、反复失败的任务。

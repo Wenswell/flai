@@ -1,9 +1,9 @@
-# Failure Patterns
+# 失败模式
 
-## Small Task Over-Processed
+## 小任务处理过重
 
-Correction: default to tiny unless escalation conditions match.
+修正：除非满足升级条件，否则默认使用 tiny。
 
-## Context Missed
+## 漏读上下文
 
-Correction: use injected context first. If missing, read project `.flai/now.md`.
+修正：优先使用注入上下文。若缺失，读取项目 `.flai/now.md`。

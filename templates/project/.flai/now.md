@@ -1,23 +1,23 @@
-# Now
+# 当前状态
 
-Last updated: {{DATE}}
+最后更新：{{DATE}}
 
-Current task: none
+当前任务：无
 
-## Focus
+## 重点
 
-Initialize project context.
+初始化项目上下文。
 
-## State
+## 状态
 
-- Lightweight `.flai` context files are installed.
-- Codex and Claude Code hook adapters are installed.
+- 已安装轻量 `.flai` 上下文文件。
+- 已安装 Codex 和 Claude Code hook 适配。
 
-## Next
+## 下一步
 
-- Fill in `.flai/project.md` with real project facts.
-- Start work normally.
+- 在 `.flai/project.md` 填入真实项目事实。
+- 正常开始工作。
 
-## Blockers
+## 阻塞项
 
-- None.
+- 无。
