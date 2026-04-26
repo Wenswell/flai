@@ -2,18 +2,18 @@
 
 ## Startup Context
 
-The session hook injects compact context from:
+Session hook 会注入压缩后的上下文，来源包括：
 
-- `<workflow-state>`: active phase, task state, missing items, and next command
-- the current `.flai/policy/<phase>.md`
-- user-level `.flai` defaults when available
+- `<workflow-state>`：active phase、任务状态、缺失项、下一条命令
+- 当前 `.flai/policy/<phase>.md`
+- 可用时读取用户级 `.flai` 默认设置
 - `.flai/now.md`
-- `.flai/conversation.md` in startup/brainstorm
-- phase-dependent project docs such as `.flai/issues.md`
-- current task `status.md`
-- project `.flai` document index
+- startup/brainstorm 阶段读取 `.flai/conversation.md`
+- 按阶段读取项目文档，例如 `.flai/issues.md`
+- 当前任务的 `status.md`
+- 项目 `.flai` 文档索引
 
-If hook context is missing, read these in order:
+如果 hook 上下文缺失，按顺序读取：
 
 1. `.flai/now.md`
 2. `.flai/policy/startup.md`
@@ -21,15 +21,15 @@ If hook context is missing, read these in order:
 4. `.flai/issues.md`
 5. `.flai/project.md`
 6. `.flai/context-policy.md`
-7. current task `status.md` referenced by `now.md`
+7. `now.md` 指向的当前任务 `status.md`
 
 ## Workflow State
 
-AI must read `<workflow-state>` first:
+AI 必须先读取 `<workflow-state>`：
 
-- `READY`: active phase has enough context to continue.
-- `NOT_READY`: required phase context is missing.
-- `NO_TASK`: active phase needs a task, but no task is active.
-- `STALE_POINTER`: current task points to a missing file.
+- `READY`：active phase 具备继续条件。
+- `NOT_READY`：缺少当前阶段必要上下文。
+- `NO_TASK`：active phase 需要任务，但没有当前任务。
+- `STALE_POINTER`：当前任务指向不存在的文件。
 
-When status is not `READY`, prioritize `Next command`.
+当状态不是 `READY` 时，优先执行或回应 `Next command`。

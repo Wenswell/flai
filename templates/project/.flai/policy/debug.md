@@ -1,8 +1,8 @@
 # Debug Phase
 
-- State the failure, evidence, and current hypothesis.
-- Read `log.md` only when debugging or resuming a failed path.
-- Use scoped source reads. Avoid broad full-repo searches.
-- Do not read git history, dist, build output, or lockfiles unless they are part of the failure.
-- Prefer one tested fix over multiple speculative changes.
-- Update `failure-patterns.md` only when the lesson is reusable.
+- 说明失败现象、证据和当前假设。
+- 仅在调试或恢复失败路径时读取 `log.md`。
+- 按范围读取源码，避免宽泛全仓搜索。
+- 除非它们属于失败原因，否则不读取 git 历史、dist、build 产物或锁文件。
+- 优先做一个经过验证的修复，不做多个猜测性改动。
+- 只有经验可复用时才更新 `failure-patterns.md`。

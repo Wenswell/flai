@@ -2,8 +2,8 @@
 
 ## Open
 
-- [ ] No open issues.
+- [ ] 无待处理 issue。
 
 ## Done
 
-- None.
+- 无。

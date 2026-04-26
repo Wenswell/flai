@@ -2,19 +2,19 @@
 
 ## Goal
 
-- Initialize active discussion state.
+- 初始化当前讨论状态。
 
 ## Conclusions
 
-- None.
+- 无。
 
 ## Open Questions
 
-- None.
+- 无。
 
 ## Next
 
-- None.
+- 无。
 
 ## Last Updated
 

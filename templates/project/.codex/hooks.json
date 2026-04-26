@@ -7,7 +7,7 @@
             "type": "command",
             "command": "node .codex/hooks/session-start.mjs",
             "timeout": 10,
-            "statusMessage": "Loading .flai context..."
+            "statusMessage": "正在加载 .flai 上下文..."
           }
         ]
       }

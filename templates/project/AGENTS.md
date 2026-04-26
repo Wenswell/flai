@@ -1,5 +1,5 @@
 # Context
 
-Prefer the injected `.flai` context.
+优先使用已注入的 `.flai` 上下文。
 
-If it is missing, read `.flai/context-policy.md` and follow its startup fallback list.
+如果缺少注入上下文，读取 `.flai/context-policy.md`，并按其中的 startup 兜底列表继续。
