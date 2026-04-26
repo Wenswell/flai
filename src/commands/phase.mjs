@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { MODES, normalizeMode } from "../context/config.mjs";
+import { normalizeMode } from "../context/config.mjs";
 import { getCurrentTask } from "./task.mjs";
 import { normalize, readText } from "../lib/common.mjs";
 
@@ -12,10 +12,7 @@ const PHASE_FILE = ".phase";
 export async function getCurrentPhase(options = {}) {
   const repoDir = normalize(options.repoDir ?? process.cwd());
   const phase = (await readText(path.join(repoDir, ".flai", PHASE_FILE))).trim();
-  if (!phase) {
-    return "startup";
-  }
-  return MODES.has(phase) ? phase : "startup";
+  return normalizeMode(phase || "startup");
 }
 
 export async function setCurrentPhase(options = {}) {

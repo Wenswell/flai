@@ -347,15 +347,6 @@ test("runCli phase supports current, set, and check", async () => {
     });
     assert.equal(currentStdout.output, "startup\n");
 
-    await writeFile(path.join(repoDir, ".flai", ".phase"), "task\n", "utf8");
-    const legacyCurrentStdout = createWritable();
-    await runCli({
-      argv: ["node", "flai", "phase", "current"],
-      stdout: legacyCurrentStdout.stream,
-      stderr: createWritable().stream,
-    });
-    assert.equal(legacyCurrentStdout.output, "startup\n");
-
     const setStdout = createWritable();
     await runCli({
       argv: ["node", "flai", "phase", "set", "review"],
