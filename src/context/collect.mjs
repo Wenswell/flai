@@ -5,6 +5,7 @@ import path from "node:path";
 import process from "node:process";
 
 import { normalizeMode, USER_DOCS } from "./config.mjs";
+import { checkPhase, getCurrentPhase } from "../commands/phase.mjs";
 import { normalizePath, readText } from "../lib/common.mjs";
 
 function contextSection(source, text, options = {}) {
@@ -104,6 +105,7 @@ export async function collectContextSections(options = {}) {
   const projectFlaiDir = path.resolve(options.projectFlaiDir ?? path.join(cwd, ".flai"));
   const nowText = await readText(path.join(projectFlaiDir, "now.md"));
   const taskRef = await readCurrentTaskRef(projectFlaiDir, nowText);
+  const phase = await getCurrentPhase({ repoDir: cwd });
   const sections = [];
 
   if (mode === "startup") {
@@ -164,6 +166,21 @@ export async function collectContextSections(options = {}) {
       tag: "docs-index",
       maxChars: mode === "startup" ? 500 : 800,
     }),
+  );
+
+  const phaseCheck = await checkPhase({ repoDir: cwd, phase });
+  sections.push(
+    contextSection(
+      "phase-gate",
+      [
+        `Current phase: ${phaseCheck.phase}.`,
+        `Status: ${phaseCheck.ok ? "ready" : "needs attention"}.`,
+        phaseCheck.issues.length ? "Issues:" : "Issues: none.",
+        ...phaseCheck.issues.map((issue) => `- ${issue}`),
+        "Next: use the current phase context unless the user explicitly changes direction.",
+      ].join("\n"),
+      { type: "generated", tag: "phase-gate", maxChars: 720 },
+    ),
   );
 
   sections.push(

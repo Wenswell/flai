@@ -298,6 +298,7 @@ test("runCli task supports create, list, current, start, and finish", async () =
       stderr: createWritable().stream,
     });
     assert.match(startStdout.output, /\.flai\/tasks\/.+improve-context\/status\.md/);
+    assert.match(startStdout.output, /Current phase: implement/);
 
     const currentStdout = createWritable();
     await runCli({
@@ -314,6 +315,53 @@ test("runCli task supports create, list, current, start, and finish", async () =
       stderr: createWritable().stream,
     });
     assert.match(finishStdout.output, /Cleared current task/);
+    assert.match(finishStdout.output, /Current phase: startup/);
+  } finally {
+    process.chdir(previousCwd);
+  }
+});
+
+test("runCli phase supports current, set, and check", async () => {
+  const repoDir = await tempRoot("cli-phase");
+  await mkdir(path.join(repoDir, ".flai"), { recursive: true });
+  await writeFile(path.join(repoDir, ".flai", "now.md"), "# Now\n\nCurrent task: none\n", "utf8");
+  const previousCwd = process.cwd();
+
+  try {
+    process.chdir(repoDir);
+
+    const currentStdout = createWritable();
+    await runCli({
+      argv: ["node", "flai", "phase", "current"],
+      stdout: currentStdout.stream,
+      stderr: createWritable().stream,
+    });
+    assert.equal(currentStdout.output, "startup\n");
+
+    const setStdout = createWritable();
+    await runCli({
+      argv: ["node", "flai", "phase", "set", "review"],
+      stdout: setStdout.stream,
+      stderr: createWritable().stream,
+    });
+    assert.equal(setStdout.output, "Current phase: review\n");
+
+    const contextStdout = createWritable();
+    await runCli({
+      argv: ["node", "flai", "context", "--budget", "900"],
+      stdout: contextStdout.stream,
+      stderr: createWritable().stream,
+    });
+    assert.match(contextStdout.output, /<flai-context mode="review" budget="900">/);
+
+    const checkStdout = createWritable();
+    await runCli({
+      argv: ["node", "flai", "phase", "check"],
+      stdout: checkStdout.stream,
+      stderr: createWritable().stream,
+    });
+    assert.match(checkStdout.output, /Phase check failed: review/);
+    process.exitCode = 0;
   } finally {
     process.chdir(previousCwd);
   }

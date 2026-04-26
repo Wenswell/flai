@@ -8,6 +8,7 @@ import process from "node:process";
 import { buildContext, buildContextAnalysis } from "./context.mjs";
 import { initProject as initProjectCommand } from "./commands/init.mjs";
 import { printResult, writeTable } from "./commands/output.mjs";
+import { checkPhase, getCurrentPhase, setCurrentPhase } from "./commands/phase.mjs";
 import {
   createTask,
   finishTask,
@@ -65,6 +66,8 @@ function parseArgs(argv) {
     mode: "startup",
     taskAction: undefined,
     taskValue: undefined,
+    phaseAction: undefined,
+    phaseValue: undefined,
     force: false,
     confirm: false,
     help: false,
@@ -100,6 +103,9 @@ function parseArgs(argv) {
   } else if (args.command === "task") {
     args.taskAction = args.values[0];
     args.taskValue = args.values[1];
+  } else if (args.command === "phase") {
+    args.phaseAction = args.values[0];
+    args.phaseValue = args.values[1];
   } else {
     args.repoDir = args.values[0];
     args.userFlaiDir = args.values[0];
@@ -118,6 +124,9 @@ function usage() {
   pnpm flai task list                     List active tasks
   pnpm flai task current                  Print the current task
   pnpm flai task finish                   Clear the current task
+  pnpm flai phase current                 Print the current workflow phase
+  pnpm flai phase set <mode>              Set startup, brainstorm, implement, review, debug, or task
+  pnpm flai phase check                   Check current phase requirements
   pnpm flai user [path] [-f]              Initialize user-level defaults, usually ~/.flai
   pnpm flai update-user [path] [-f]       Update managed user defaults from installed templates
   pnpm flai self-update [path] [-f]       Update the global flai package, then user defaults
@@ -167,10 +176,11 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
   }
 
   if (args.command === "context") {
+    const mode = args.values[0] ? args.mode : await getCurrentPhase({ repoDir: process.cwd() });
     if (args.sources) {
       const analysis = await buildContextAnalysis({
         cwd: process.cwd(),
-        mode: args.mode,
+        mode,
         budget: args.budget,
       });
       writeTable(stdout, stderr, [
@@ -198,7 +208,7 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
     stdout.write(
       `${await buildContext({
         cwd: process.cwd(),
-        mode: args.mode,
+        mode,
         budget: args.budget,
       })}\n`,
     );
@@ -213,13 +223,17 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
 
     if (args.taskAction === "start") {
       const result = await startTask({ repoDir: process.cwd(), name: args.taskValue });
+      await setCurrentPhase({ repoDir: process.cwd(), phase: "implement" });
       stdout.write(`Current task: ${result.current}\n`);
+      stdout.write("Current phase: implement\n");
       return;
     }
 
     if (args.taskAction === "finish") {
       const result = await finishTask({ repoDir: process.cwd() });
+      await setCurrentPhase({ repoDir: process.cwd(), phase: "startup" });
       stdout.write(result.previous ? `Cleared current task: ${result.previous}\n` : "No current task.\n");
+      stdout.write("Current phase: startup\n");
       return;
     }
 
@@ -236,6 +250,34 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
         return;
       }
       writeTable(stdout, stderr, tasks);
+      return;
+    }
+
+    stderr.write(usage());
+    process.exitCode = 1;
+    return;
+  }
+
+  if (args.command === "phase") {
+    if (args.phaseAction === "current") {
+      stdout.write(`${await getCurrentPhase({ repoDir: process.cwd() })}\n`);
+      return;
+    }
+
+    if (args.phaseAction === "set") {
+      const result = await setCurrentPhase({ repoDir: process.cwd(), phase: args.phaseValue });
+      stdout.write(`Current phase: ${result.phase}\n`);
+      return;
+    }
+
+    if (args.phaseAction === "check") {
+      const result = await checkPhase({ repoDir: process.cwd() });
+      if (result.ok) {
+        stdout.write(`Phase check passed: ${result.phase}\n`);
+        return;
+      }
+      stdout.write(`Phase check failed: ${result.phase}\n${result.issues.map((issue) => `- ${issue}`).join("\n")}\n`);
+      process.exitCode = 1;
       return;
     }
 

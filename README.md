@@ -21,6 +21,9 @@ flai task start <name>
 flai task list
 flai task current
 flai task finish
+flai phase current
+flai phase set <mode>
+flai phase check
 flai user [path] [-f]
 flai update-user [path] [-f]
 flai self-update [path] [-f]
@@ -40,6 +43,8 @@ flai init .
 `flai context` prints rendered context for the current project. Modes are `startup`, `brainstorm`, `implement`, `review`, `debug`, and `task`. Use `--budget` to change the character budget. Use `--sources` to print a compact `console.table` source view with chars, tokens, state, and a 20-character preview.
 
 `flai task` creates and selects lightweight task directories under `.flai/tasks/`.
+
+`flai phase` records the current workflow phase in `.flai/.phase`. When `flai context` is run without an explicit mode, it uses the current phase. `flai task start` sets the phase to `implement`; `flai task finish` resets it to `startup`.
 
 `flai update-user` updates user defaults from the installed package templates. It only overwrites files still matching the previous managed template. Locally edited files are reported as conflicts unless `-f` is used.
 

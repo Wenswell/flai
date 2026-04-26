@@ -1,6 +1,7 @@
 import process from "node:process";
 
 import { buildContext } from "./api.mjs";
+import { getCurrentPhase } from "../commands/phase.mjs";
 
 function parseHookInput(raw) {
   if (!raw.trim()) {
@@ -16,7 +17,7 @@ function parseHookInput(raw) {
 function parseArgs(argv) {
   const args = {
     client: "text",
-    mode: "startup",
+    mode: undefined,
     budget: undefined,
   };
 
@@ -51,9 +52,10 @@ export async function runCli({ argv = process.argv, stdin = process.stdin, stdou
   });
 
   const input = parseHookInput(raw);
+  const cwd = input.cwd ?? process.cwd();
   const context = await buildContext({
-    cwd: input.cwd ?? process.cwd(),
-    mode: args.mode,
+    cwd,
+    mode: args.mode || (await getCurrentPhase({ repoDir: cwd })),
     budget: args.budget,
   });
 

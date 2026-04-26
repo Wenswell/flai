@@ -84,6 +84,8 @@ test("buildContext injects user defaults, project now, active task status, and p
   assert.match(context, /<task-status\.md/);
   assert.match(context, /State: active/);
   assert.match(context, /<mode-rule/);
+  assert.match(context, /<phase-gate/);
+  assert.match(context, /Current phase: startup/);
   assert.doesNotMatch(context, /SECRET LOG SHOULD NOT LOAD/);
 });
 
