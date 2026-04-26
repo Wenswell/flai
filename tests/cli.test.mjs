@@ -104,8 +104,10 @@ test("initProject creates project docs, hooks, and fallback instructions", async
   assert.equal(existsSync(path.join(repoDir, ".flai", "project.md")), true);
   assert.equal(existsSync(path.join(repoDir, ".flai", "now.md")), true);
   assert.equal(existsSync(path.join(repoDir, ".flai", "context-policy.md")), true);
+  assert.equal(existsSync(path.join(repoDir, ".flai", "conversation.md")), true);
+  assert.equal(existsSync(path.join(repoDir, ".flai", "issues.md")), true);
+  assert.equal(existsSync(path.join(repoDir, ".flai", "workflow.md")), true);
   assert.equal(existsSync(path.join(repoDir, ".flai", "failure-patterns.md")), false);
-  assert.equal(existsSync(path.join(repoDir, ".flai", "issues.md")), false);
   assert.equal(existsSync(path.join(repoDir, ".codex", "hooks.json")), true);
   assert.equal(existsSync(path.join(repoDir, ".codex", "hooks", "session-start.mjs")), true);
   assert.equal(existsSync(path.join(repoDir, ".claude", "settings.json")), true);

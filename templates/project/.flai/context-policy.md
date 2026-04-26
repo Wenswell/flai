@@ -6,17 +6,28 @@
 
 - 可用时读取用户级 `.flai` 默认设置
 - `.flai/now.md`
+- `.flai/conversation.md`
+- `.flai/issues.md`
 - 当前任务的 `status.md`
-- `.flai/project.md`
 - `.flai/context-policy.md`
 - 项目 `.flai` 文档索引
 
 如果 hook 上下文缺失，按顺序读取：
 
 1. `.flai/now.md`
-2. `.flai/project.md`
-3. `.flai/context-policy.md`
-4. `now.md` 指向的当前任务 `status.md`
+2. `.flai/conversation.md`
+3. `.flai/issues.md`
+4. `.flai/project.md`
+5. `.flai/context-policy.md`
+6. `now.md` 指向的当前任务 `status.md`
+
+## 对话同步
+
+AI 在结论、计划、决策、待确认点、issue 候选发生变化时，必须在本轮结束前更新 `.flai/conversation.md`。
+
+不要复制聊天全文。只保留压缩后的工作状态。
+
+当候选事项变成可执行工作时，写入或更新 `.flai/issues.md`。
 
 ## 任务模式
 

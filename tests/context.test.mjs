@@ -37,7 +37,17 @@ async function makeProject() {
   );
   await writeFile(
     path.join(flai, "now.md"),
-    "# Now\n\nLast updated: 2026-04-25\n\nCurrent task: .flai/tasks/2026-04-25-context-hook/status.md\n\nNext:\n- Implement hook adapters\n",
+    "# Now\n\nLast updated: 2026-04-25\n\nCurrent task: .flai/tasks/2026-04-25-context-hook/status.md\n\nCurrent conversation: .flai/conversation.md\n\nNext:\n- Implement hook adapters\n",
+    "utf8",
+  );
+  await writeFile(
+    path.join(flai, "conversation.md"),
+    "# Conversation\n\n## Conclusions\n\n- Use fixed conversation state.\n",
+    "utf8",
+  );
+  await writeFile(
+    path.join(flai, "issues.md"),
+    "# Issues\n\n## Open\n\n- [ ] flai-001: add issue flow.\n",
     "utf8",
   );
   await writeFile(
@@ -68,6 +78,10 @@ test("buildContext injects user defaults, project now, active task status, and p
   assert.match(context, /Use Chinese/);
   assert.match(context, /<project-now>/);
   assert.match(context, /Current task:/);
+  assert.match(context, /<conversation>/);
+  assert.match(context, /Use fixed conversation state/);
+  assert.match(context, /<issues>/);
+  assert.match(context, /flai-001/);
   assert.match(context, /<active-task-status/);
   assert.match(context, /State: active/);
   assert.match(context, /<context-policy>/);

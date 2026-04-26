@@ -150,6 +150,14 @@ async function buildContextItems(options = {}) {
     items.push(contextItem(".flai/now.md", nowText));
   }
 
+  for (const name of ["conversation.md", "issues.md"]) {
+    const filePath = path.join(projectFlaiDir, name);
+    const text = await readText(filePath);
+    if (text.trim()) {
+      items.push(contextItem(normalizePath(path.join(".flai", name)), text));
+    }
+  }
+
   const taskRef = extractCurrentTaskPath(nowText);
   if (taskRef) {
     const statusPath = resolveProjectPath(cwd, taskRef);
@@ -224,6 +232,14 @@ async function buildProjectPolicy(projectAiDir) {
   return `## Source: .flai/context-policy.md\n${compactMarkdown(policyText, 1100)}`;
 }
 
+async function buildProjectDoc(projectAiDir, name, maxChars) {
+  const text = await readText(path.join(projectAiDir, name));
+  if (!text.trim()) {
+    return "";
+  }
+  return `## Source: .flai/${name}\n${compactMarkdown(text, maxChars)}`;
+}
+
 async function buildActiveTaskStatus(cwd, nowText) {
   const taskRef = extractCurrentTaskPath(nowText);
   if (!taskRef) {
@@ -251,6 +267,8 @@ export async function buildContext(options = {}) {
   const chunks = [
     section("user-defaults", await buildUserDefaults(userFlaiDir)),
     section("project-now", nowText ? `## Source: .flai/now.md\n${compactMarkdown(nowText, 1200)}` : "No .flai/now.md found."),
+    section("conversation", await buildProjectDoc(projectFlaiDir, "conversation.md", 1000)),
+    section("issues", await buildProjectDoc(projectFlaiDir, "issues.md", 800)),
     section("active-task-status", await buildActiveTaskStatus(cwd, nowText), 'source="current-task"'),
     section("project-summary", await buildProjectSummary(projectFlaiDir)),
     section("context-policy", await buildProjectPolicy(projectFlaiDir)),
@@ -260,6 +278,8 @@ export async function buildContext(options = {}) {
       [
         "Default to tiny or normal flow.",
         "Do not create task docs, PRDs, multi-agent plans, or review loops by default.",
+        "Update .flai/conversation.md before ending the turn when conclusions, plans, decisions, open questions, or issue candidates change.",
+        "Move actionable items from .flai/conversation.md into .flai/issues.md.",
         "Read plan.md only when continuing a normal/deep task. Do not read log.md by default.",
       ].join("\n"),
     ),
