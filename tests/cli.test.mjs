@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -209,39 +209,105 @@ test("runCli prints help for help command", async () => {
 
   assert.match(stdout.output, /pnpm flai init/);
   assert.match(stdout.output, /Initialize a project/);
+  assert.match(stdout.output, /pnpm flai context \[mode\]/);
+  assert.match(stdout.output, /pnpm flai task list/);
   assert.match(stdout.output, /Initialize user-level defaults/);
   assert.match(stdout.output, /Update managed user defaults/);
   assert.match(stdout.output, /Update the global flai package/);
-  assert.match(stdout.output, /Print context files with token counts/);
 });
 
-test("runCli context prints previews by default and full content when requested", async () => {
+test("runCli context prints rendered context by default and sources table when requested", async () => {
   const repoDir = await tempRoot("cli-context");
   await mkdir(path.join(repoDir, ".flai"), { recursive: true });
   await writeFile(path.join(repoDir, ".flai", "project.md"), "# Project\n\nShort project.\n", "utf8");
   await writeFile(path.join(repoDir, ".flai", "context-policy.md"), "# Policy\n\nShort policy.\n", "utf8");
   await writeFile(path.join(repoDir, ".flai", "now.md"), `# Now\n\n${"visible ".repeat(80)}TAIL`, "utf8");
+  const previousCwd = process.cwd();
 
-  const previewStdout = createWritable();
-  await runCli({
-    argv: ["node", "flai", "context", repoDir, "--max", "80"],
-    stdout: previewStdout.stream,
-    stderr: createWritable().stream,
-  });
+  try {
+    process.chdir(repoDir);
 
-  assert.match(previewStdout.output, /mode: preview/);
-  assert.match(previewStdout.output, /tokens: \d+/);
-  assert.match(previewStdout.output, /preview:/);
-  assert.doesNotMatch(previewStdout.output, /TAIL/);
+    const contextStdout = createWritable();
+    await runCli({
+      argv: ["node", "flai", "context", "startup", "--budget", "900"],
+      stdout: contextStdout.stream,
+      stderr: createWritable().stream,
+    });
 
-  const fullStdout = createWritable();
-  await runCli({
-    argv: ["node", "flai", "context", repoDir, "--full"],
-    stdout: fullStdout.stream,
-    stderr: createWritable().stream,
-  });
+    assert.match(contextStdout.output, /<flai-context mode="startup" budget="900">/);
+    assert.match(contextStdout.output, /<project-now/);
 
-  assert.match(fullStdout.output, /mode: full/);
-  assert.match(fullStdout.output, /content:/);
-  assert.match(fullStdout.output, /TAIL/);
+    const sourcesStdout = createWritable();
+    await runCli({
+      argv: ["node", "flai", "context", "startup", "--sources"],
+      stdout: sourcesStdout.stream,
+      stderr: createWritable().stream,
+    });
+
+    assert.match(sourcesStdout.output, /mode: startup/);
+    assert.match(sourcesStdout.output, /budget: 2600/);
+    assert.match(sourcesStdout.output, /source/);
+    assert.match(sourcesStdout.output, /preview/);
+    assert.match(sourcesStdout.output, /\.flai\/now\.md/);
+  } finally {
+    process.chdir(previousCwd);
+  }
+});
+
+test("runCli task supports create, list, current, start, and finish", async () => {
+  const repoDir = await tempRoot("cli-task");
+  await mkdir(path.join(repoDir, ".flai"), { recursive: true });
+  await writeFile(path.join(repoDir, ".flai", "now.md"), "# Now\n\nCurrent task: none\n", "utf8");
+  const previousCwd = process.cwd();
+
+  try {
+    process.chdir(repoDir);
+
+    const createStdout = createWritable();
+    await runCli({
+      argv: ["node", "flai", "task", "create", "Improve context"],
+      stdout: createStdout.stream,
+      stderr: createWritable().stream,
+    });
+
+    assert.match(createStdout.output, /Created task/);
+    const tasksDir = path.join(repoDir, ".flai", "tasks");
+    const tasks = await readdir(tasksDir);
+    const taskName = tasks.find((name) => name.endsWith("improve-context"));
+    assert.ok(taskName);
+
+    const listStdout = createWritable();
+    await runCli({
+      argv: ["node", "flai", "task", "list"],
+      stdout: listStdout.stream,
+      stderr: createWritable().stream,
+    });
+    assert.match(listStdout.output, /improve-context/);
+
+    const startStdout = createWritable();
+    await runCli({
+      argv: ["node", "flai", "task", "start", "improve-context"],
+      stdout: startStdout.stream,
+      stderr: createWritable().stream,
+    });
+    assert.match(startStdout.output, /\.flai\/tasks\/.+improve-context\/status\.md/);
+
+    const currentStdout = createWritable();
+    await runCli({
+      argv: ["node", "flai", "task", "current"],
+      stdout: currentStdout.stream,
+      stderr: createWritable().stream,
+    });
+    assert.match(currentStdout.output, /improve-context\/status\.md/);
+
+    const finishStdout = createWritable();
+    await runCli({
+      argv: ["node", "flai", "task", "finish"],
+      stdout: finishStdout.stream,
+      stderr: createWritable().stream,
+    });
+    assert.match(finishStdout.output, /Cleared current task/);
+  } finally {
+    process.chdir(previousCwd);
+  }
 });

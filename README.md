@@ -7,24 +7,24 @@ Lightweight `.flai` context initializer for Codex and Claude Code.
 After publishing:
 
 ```bash
-npm install -g flai
-```
-
-If the package name `flai` is already taken on npm, publish it as a scoped package such as `@your-scope/flai`. The command can still be `flai` because the binary name is controlled by `package.json`.
-
-```bash
-npm install -g @your-scope/flai
+npm install -g @wenswell/flai
 ```
 
 ## Use
 
 ```bash
 flai init [path] [-f]
+flai context [mode] [--budget <chars>]
+flai context [mode] --sources
+flai task create "title"
+flai task start <name>
+flai task list
+flai task current
+flai task finish
 flai user [path] [-f]
 flai update-user [path] [-f]
 flai self-update [path] [-f]
 flai uninstall-user [path] -f
-flai context [path] [--max <chars>] [--full]
 flai help
 ```
 
@@ -37,9 +37,11 @@ flai init .
 
 `flai init` creates project `.flai` docs plus Codex and Claude Code hook adapters. Runtime code stays in the installed npm package.
 
-`flai update-user` updates user defaults from the installed package templates. It only overwrites files still matching the previous managed template. Locally edited files are reported as conflicts unless `-f` is used.
+`flai context` prints rendered context for the current project. Modes are `startup`, `brainstorm`, `implement`, `review`, `debug`, and `task`. Use `--budget` to change the character budget. Use `--sources` to print a compact `console.table` source view with chars, tokens, state, and a 20-character preview.
 
-`flai context` prints each context file with token counts and a preview. Use `--full` to print all context file content. Use `--max <chars>` to change preview length.
+`flai task` creates and selects lightweight task directories under `.flai/tasks/`.
+
+`flai update-user` updates user defaults from the installed package templates. It only overwrites files still matching the previous managed template. Locally edited files are reported as conflicts unless `-f` is used.
 
 Update the installed package first, then update user defaults:
 

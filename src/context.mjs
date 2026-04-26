@@ -5,9 +5,17 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 
-const DEFAULT_MAX_CHARS = 5000;
-const DEFAULT_PREVIEW_CHARS = 360;
+const MODE_BUDGETS = {
+  startup: 2600,
+  brainstorm: 5000,
+  implement: 6500,
+  review: 5200,
+  debug: 6500,
+  task: 4200,
+};
+
 const USER_DOCS = ["preferences.md", "workflow.md", "failure-patterns.md"];
+const MODES = new Set(Object.keys(MODE_BUDGETS));
 
 function normalizePath(value) {
   return value.replace(/\\/g, "/");
@@ -21,6 +29,18 @@ async function readText(filePath, fallback = "") {
   }
 }
 
+function normalizeWhitespace(text) {
+  return text.replace(/\r\n/g, "\n").replace(/\s+/g, " ").trim();
+}
+
+function previewText(text, maxChars = 20) {
+  const clean = normalizeWhitespace(text);
+  if (clean.length <= maxChars) {
+    return clean;
+  }
+  return `${clean.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
+}
+
 function compactMarkdown(text, maxChars) {
   const clean = text.replace(/\r\n/g, "\n").trim();
   if (clean.length <= maxChars) {
@@ -32,12 +52,17 @@ function compactMarkdown(text, maxChars) {
   let size = 0;
   for (const line of lines) {
     const nextSize = size + line.length + 1;
-    if (nextSize > maxChars - 40) {
+    if (nextSize > maxChars - 14) {
       break;
     }
     kept.push(line);
     size = nextSize;
   }
+
+  if (!kept.length) {
+    return `${clean.slice(0, Math.max(0, maxChars - 14)).trimEnd()}\n[trimmed]`;
+  }
+
   kept.push("[trimmed]");
   return kept.join("\n");
 }
@@ -57,49 +82,56 @@ function estimateTokens(text) {
   }, 0);
 }
 
-function previewText(text, maxChars = DEFAULT_PREVIEW_CHARS) {
-  const clean = text.replace(/\r\n/g, "\n").replace(/\s+/g, " ").trim();
-  if (clean.length <= maxChars) {
-    return clean;
+function normalizeMode(value) {
+  if (!value) {
+    return "startup";
   }
-  return `${clean.slice(0, maxChars).trimEnd()} [preview trimmed]`;
+  if (!MODES.has(value)) {
+    throw new Error(`Unknown context mode: ${value}`);
+  }
+  return value;
 }
 
-function indentBlock(text) {
-  const content = text.trim() || "[empty]";
-  return content
-    .split("\n")
-    .map((line) => `  ${line}`)
-    .join("\n");
+function normalizeBudget(options, mode) {
+  const value = options.budget ?? process.env.FLAI_CONTEXT_BUDGET;
+  if (value === undefined) {
+    return MODE_BUDGETS[mode];
+  }
+  const budget = Number(value);
+  if (!Number.isFinite(budget) || budget < 500) {
+    throw new Error("Context budget must be a number >= 500.");
+  }
+  return Math.floor(budget);
 }
 
-function contextItem(source, text, type = "file") {
+function contextSection(source, text, options = {}) {
   return {
     source,
-    type,
+    type: options.type ?? "file",
+    tag: options.tag ?? path.basename(source).replace(/[^A-Za-z0-9_-]/g, "-"),
     text: text.replace(/\r\n/g, "\n").trim(),
+    maxChars: options.maxChars ?? 1200,
   };
 }
 
-function section(name, body, attrs = "") {
-  const content = body.trim();
-  if (!content) {
-    return "";
-  }
-  const open = attrs ? `<${name} ${attrs}>` : `<${name}>`;
-  return `${open}\n${content}\n</${name}>`;
-}
-
 function extractCurrentTaskPath(nowText) {
-  const match = nowText.match(/Current task:\s*(.+)/i);
+  const match = nowText.match(/(?:Current task|当前任务)\s*[:：]\s*(.+)/i);
   if (!match) {
     return "";
   }
   const value = match[1].trim().replace(/^`|`$/g, "");
-  if (!value || value.toLowerCase() === "none") {
+  if (!value || /^(none|no|无)$/i.test(value)) {
     return "";
   }
   return value;
+}
+
+async function readCurrentTaskRef(projectFlaiDir, nowText) {
+  const fromFile = await readText(path.join(projectFlaiDir, ".current-task"));
+  if (fromFile.trim()) {
+    return fromFile.trim();
+  }
+  return extractCurrentTaskPath(nowText);
 }
 
 function resolveProjectPath(cwd, maybeRelative) {
@@ -110,15 +142,16 @@ function resolveProjectPath(cwd, maybeRelative) {
   return path.resolve(cwd, normalized);
 }
 
-async function listProjectDocs(projectAiDir) {
-  if (!existsSync(projectAiDir)) {
+async function listProjectDocs(projectFlaiDir) {
+  if (!existsSync(projectFlaiDir)) {
     return "No project .flai directory found.";
   }
 
-  const entries = await readdir(projectAiDir, { withFileTypes: true });
+  const entries = await readdir(projectFlaiDir, { withFileTypes: true });
   const docs = entries
     .filter((entry) => {
       if (entry.name === "scripts") return false;
+      if (entry.name.startsWith(".backup-")) return false;
       return entry.isDirectory() || entry.name.endsWith(".md");
     })
     .map((entry) => `${entry.isDirectory() ? "dir " : "file"} ${normalizePath(path.join(".flai", entry.name))}`)
@@ -127,193 +160,201 @@ async function listProjectDocs(projectAiDir) {
   return docs.length ? docs.join("\n") : "No project docs found.";
 }
 
-async function buildContextItems(options = {}) {
-  const cwd = path.resolve(options.cwd ?? process.cwd());
-  const userFlaiDir = path.resolve(
-    options.userFlaiDir ?? process.env.FLAI_USER_DIR ?? path.join(os.homedir(), ".flai"),
-  );
-  const projectFlaiDir = path.resolve(options.projectFlaiDir ?? path.join(cwd, ".flai"));
-  const items = [];
+async function addProjectDoc(sections, projectFlaiDir, name, options = {}) {
+  const text = await readText(path.join(projectFlaiDir, name));
+  if (text.trim()) {
+    sections.push(contextSection(normalizePath(path.join(".flai", name)), text, options));
+  }
+}
 
-  for (const name of USER_DOCS) {
+async function addUserDocs(sections, userFlaiDir, names, maxChars = 700) {
+  for (const name of names) {
     const filePath = path.join(userFlaiDir, name);
     const text = await readText(filePath);
     if (text.trim()) {
-      items.push(contextItem(normalizePath(filePath), text));
+      sections.push(contextSection(normalizePath(filePath), text, { tag: `user-${name}`, maxChars }));
     }
   }
-
-  const nowPath = path.join(projectFlaiDir, "now.md");
-  const nowText = await readText(nowPath);
-  if (nowText.trim()) {
-    items.push(contextItem(".flai/now.md", nowText));
-  }
-
-  for (const name of ["conversation.md", "issues.md"]) {
-    const filePath = path.join(projectFlaiDir, name);
-    const text = await readText(filePath);
-    if (text.trim()) {
-      items.push(contextItem(normalizePath(path.join(".flai", name)), text));
-    }
-  }
-
-  const taskRef = extractCurrentTaskPath(nowText);
-  if (taskRef) {
-    const statusPath = resolveProjectPath(cwd, taskRef);
-    const statusText = await readText(statusPath);
-    if (statusText.trim()) {
-      items.push(contextItem(normalizePath(taskRef), statusText));
-    }
-  }
-
-  for (const name of ["project.md", "context-policy.md"]) {
-    const filePath = path.join(projectFlaiDir, name);
-    const text = await readText(filePath);
-    if (text.trim()) {
-      items.push(contextItem(normalizePath(path.join(".flai", name)), text));
-    }
-  }
-
-  items.push(contextItem("project-doc-index", await listProjectDocs(projectFlaiDir), "generated"));
-  items.push(
-    contextItem(
-      "startup-rule",
-      [
-        "Default to tiny or normal flow.",
-        "Do not create task docs, PRDs, multi-agent plans, or review loops by default.",
-        "Read plan.md only when continuing a normal/deep task. Do not read log.md by default.",
-      ].join("\n"),
-      "generated",
-    ),
-  );
-
-  return items.filter((item) => item.text.trim());
 }
 
-function trimContext(context, maxChars) {
-  if (context.length <= maxChars) {
-    return context;
-  }
-
-  const marker = "\n<context-note>Context trimmed to fit the startup budget. Read source files on demand.</context-note>\n";
-  return `${context.slice(0, Math.max(0, maxChars - marker.length))}${marker}`.slice(0, maxChars);
-}
-
-async function buildUserDefaults(userFlaiDir) {
-  const parts = [];
-  for (const name of USER_DOCS) {
-    const filePath = path.join(userFlaiDir, name);
-    const text = await readText(filePath);
-    if (text.trim()) {
-      parts.push(`## Source: ${normalizePath(filePath)}\n${compactMarkdown(text, 900)}`);
-    }
-  }
-
-  if (!parts.length) {
-    return "No user-level .flai defaults found.";
-  }
-  return parts.join("\n\n");
-}
-
-async function buildProjectSummary(projectAiDir) {
-  const projectText = await readText(path.join(projectAiDir, "project.md"));
-  if (!projectText.trim()) {
-    return "No .flai/project.md found.";
-  }
-  return `## Source: .flai/project.md\n${compactMarkdown(projectText, 1100)}`;
-}
-
-async function buildProjectPolicy(projectAiDir) {
-  const policyText = await readText(path.join(projectAiDir, "context-policy.md"));
-  if (!policyText.trim()) {
-    return "No .flai/context-policy.md found.";
-  }
-  return `## Source: .flai/context-policy.md\n${compactMarkdown(policyText, 1100)}`;
-}
-
-async function buildProjectDoc(projectAiDir, name, maxChars) {
-  const text = await readText(path.join(projectAiDir, name));
-  if (!text.trim()) {
-    return "";
-  }
-  return `## Source: .flai/${name}\n${compactMarkdown(text, maxChars)}`;
-}
-
-async function buildActiveTaskStatus(cwd, nowText) {
-  const taskRef = extractCurrentTaskPath(nowText);
+async function addTaskDoc(sections, cwd, taskRef, name, options = {}) {
   if (!taskRef) {
-    return "";
+    return;
   }
 
   const statusPath = resolveProjectPath(cwd, taskRef);
-  const status = await readText(statusPath);
-  if (!status.trim()) {
-    return `Current task status file not found: ${taskRef}`;
+  const taskDir = path.dirname(statusPath);
+  const filePath = name === "status.md" ? statusPath : path.join(taskDir, name);
+  const text = await readText(filePath);
+  if (text.trim()) {
+    const source = normalizePath(path.relative(cwd, filePath));
+    sections.push(contextSection(source, text, { tag: `task-${name}`, maxChars: options.maxChars ?? 1000 }));
   }
-
-  return compactMarkdown(status, 1000);
 }
 
-export async function buildContext(options = {}) {
+async function collectContextSections(options = {}) {
+  const mode = normalizeMode(options.mode);
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const userFlaiDir = path.resolve(
     options.userFlaiDir ?? process.env.FLAI_USER_DIR ?? path.join(os.homedir(), ".flai"),
   );
   const projectFlaiDir = path.resolve(options.projectFlaiDir ?? path.join(cwd, ".flai"));
-  const maxChars = Number(options.maxChars ?? process.env.FLAI_CONTEXT_MAX_CHARS ?? DEFAULT_MAX_CHARS);
-
   const nowText = await readText(path.join(projectFlaiDir, "now.md"));
-  const chunks = [
-    section("user-defaults", await buildUserDefaults(userFlaiDir)),
-    section("project-now", nowText ? `## Source: .flai/now.md\n${compactMarkdown(nowText, 1200)}` : "No .flai/now.md found."),
-    section("conversation", await buildProjectDoc(projectFlaiDir, "conversation.md", 1000)),
-    section("issues", await buildProjectDoc(projectFlaiDir, "issues.md", 800)),
-    section("active-task-status", await buildActiveTaskStatus(cwd, nowText), 'source="current-task"'),
-    section("project-summary", await buildProjectSummary(projectFlaiDir)),
-    section("context-policy", await buildProjectPolicy(projectFlaiDir)),
-    section("docs-index", await listProjectDocs(projectFlaiDir)),
-    section(
-      "startup-rule",
-      [
-        "Default to tiny or normal flow.",
-        "Do not create task docs, PRDs, multi-agent plans, or review loops by default.",
-        "Update .flai/conversation.md before ending the turn when conclusions, plans, decisions, open questions, or issue candidates change.",
-        "Move actionable items from .flai/conversation.md into .flai/issues.md.",
-        "Read plan.md only when continuing a normal/deep task. Do not read log.md by default.",
-      ].join("\n"),
-    ),
-  ].filter(Boolean);
+  const taskRef = await readCurrentTaskRef(projectFlaiDir, nowText);
+  const sections = [];
 
-  return trimContext(chunks.join("\n\n"), maxChars);
+  if (mode === "startup") {
+    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 620 }));
+    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 600 });
+    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 520 });
+    await addProjectDoc(sections, projectFlaiDir, "project.md", { tag: "project-summary", maxChars: 620 });
+    await addUserDocs(sections, userFlaiDir, USER_DOCS, 420);
+    await addProjectDoc(sections, projectFlaiDir, "workflow.md", { tag: "workflow", maxChars: 620 });
+  } else if (mode === "brainstorm") {
+    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 700 }));
+    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 1200 });
+    await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: 900 });
+    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
+    await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: 1400 });
+    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: 1000 });
+    await addProjectDoc(sections, projectFlaiDir, "project.md", { tag: "project-summary", maxChars: 900 });
+    await addUserDocs(sections, userFlaiDir, ["preferences.md", "workflow.md"], 450);
+  } else if (mode === "implement") {
+    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 650 }));
+    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 900 });
+    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
+    await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: 1300 });
+    await addTaskDoc(sections, cwd, taskRef, "implement.md", { maxChars: 1600 });
+    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: 900 });
+    await addProjectDoc(sections, projectFlaiDir, "project.md", { tag: "project-summary", maxChars: 900 });
+    await addProjectDoc(sections, projectFlaiDir, "workflow.md", { tag: "workflow", maxChars: 900 });
+    await addUserDocs(sections, userFlaiDir, USER_DOCS, 420);
+  } else if (mode === "review") {
+    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 600 }));
+    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 800 });
+    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
+    await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: 900 });
+    await addTaskDoc(sections, cwd, taskRef, "review.md", { maxChars: 1400 });
+    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: 900 });
+    await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: 700 });
+    await addUserDocs(sections, userFlaiDir, ["preferences.md", "workflow.md"], 420);
+  } else if (mode === "debug") {
+    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 650 }));
+    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 800 });
+    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
+    await addTaskDoc(sections, cwd, taskRef, "review.md", { maxChars: 900 });
+    await addTaskDoc(sections, cwd, taskRef, "log.md", { maxChars: 1600 });
+    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: 900 });
+    await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: 700 });
+    await addUserDocs(sections, userFlaiDir, ["failure-patterns.md", "preferences.md", "workflow.md"], 420);
+  } else if (mode === "task") {
+    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 700 }));
+    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 1000 });
+    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 1100 });
+    await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: 1300 });
+    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: 1000 });
+  }
+
+  sections.push(
+    contextSection("project-doc-index", await listProjectDocs(projectFlaiDir), {
+      type: "generated",
+      tag: "docs-index",
+      maxChars: mode === "startup" ? 500 : 800,
+    }),
+  );
+
+  sections.push(
+    contextSection(
+      "mode-rule",
+      [
+        `Context mode: ${mode}.`,
+        "User-facing workflow stays conversational.",
+        "Use tiny for clear low-risk changes.",
+        "Use normal or deep only when scope, risk, or uncertainty justifies task files.",
+        "Read more files on demand instead of assuming omitted context.",
+      ].join("\n"),
+      { type: "generated", tag: "mode-rule", maxChars: 520 },
+    ),
+  );
+
+  return sections.filter((section) => section.text.trim());
+}
+
+function renderSection(section, text) {
+  return `<${section.tag} source="${section.source}">\n${text}\n</${section.tag}>`;
+}
+
+function analyzeSections(sections, options = {}) {
+  const mode = normalizeMode(options.mode);
+  const budget = normalizeBudget(options, mode);
+  const close = "\n</flai-context>\n";
+  const chunks = [`<flai-context mode="${mode}" budget="${budget}">`];
+  const rows = [];
+
+  for (const section of sections) {
+    const currentLength = chunks.join("\n\n").length + close.length;
+    const remaining = budget - currentLength;
+    const wrapperOverhead = renderSection(section, "").length + 2;
+    const allowed = Math.min(section.maxChars, remaining - wrapperOverhead);
+
+    if (allowed < 80) {
+      rows.push({ section, state: "omitted", renderedText: "" });
+      continue;
+    }
+
+    const renderedText = compactMarkdown(section.text, allowed);
+    const state = renderedText.length < section.text.length ? "trimmed" : "used";
+    chunks.push(renderSection(section, renderedText));
+    rows.push({ section, state, renderedText });
+  }
+
+  chunks.push("</flai-context>");
+
+  return {
+    mode,
+    budget,
+    text: chunks.join("\n\n"),
+    rows: rows.map(({ section, state, renderedText }) => ({
+      source: section.source,
+      type: section.type,
+      chars: section.text.length,
+      tokens: estimateTokens(section.text),
+      state,
+      preview: previewText(section.text),
+      renderedChars: renderedText.length,
+    })),
+  };
+}
+
+export async function buildContextAnalysis(options = {}) {
+  const mode = normalizeMode(options.mode);
+  const sections = await collectContextSections({ ...options, mode });
+  return analyzeSections(sections, { ...options, mode });
+}
+
+export async function buildContext(options = {}) {
+  return (await buildContextAnalysis(options)).text;
+}
+
+export async function buildContextSources(options = {}) {
+  return (await buildContextAnalysis(options)).rows;
 }
 
 export async function buildContextReport(options = {}) {
-  const previewChars = Number(options.previewChars ?? DEFAULT_PREVIEW_CHARS);
-  const full = Boolean(options.full);
-  const items = await buildContextItems(options);
-  const totalChars = items.reduce((total, item) => total + item.text.length, 0);
-  const totalTokens = items.reduce((total, item) => total + estimateTokens(item.text), 0);
+  const analysis = await buildContextAnalysis(options);
   const lines = [
-    "# .flai context",
+    "# .flai context sources",
     "",
-    `mode: ${full ? "full" : "preview"}`,
-    `files: ${items.filter((item) => item.type === "file").length}`,
-    `generated: ${items.filter((item) => item.type === "generated").length}`,
-    `tokens: ${totalTokens}`,
-    `chars: ${totalChars}`,
+    `mode: ${analysis.mode}`,
+    `budget: ${analysis.budget}`,
+    `chars: ${analysis.text.length}`,
+    "",
+    "| source | type | chars | tokens | state | preview |",
+    "|---|---|---:|---:|---|---|",
   ];
 
-  for (const item of items) {
-    const content = full ? item.text : previewText(item.text, previewChars);
-    lines.push(
-      "",
-      `## ${item.source}`,
-      `type: ${item.type}`,
-      `tokens: ${estimateTokens(item.text)}`,
-      `chars: ${item.text.length}`,
-      `${full ? "content" : "preview"}:`,
-      indentBlock(content),
-    );
+  for (const row of analysis.rows) {
+    lines.push(`| ${row.source} | ${row.type} | ${row.chars} | ${row.tokens} | ${row.state} | ${row.preview} |`);
   }
 
   return lines.join("\n");
@@ -333,7 +374,8 @@ function parseHookInput(raw) {
 function parseArgs(argv) {
   const args = {
     client: "text",
-    maxChars: undefined,
+    mode: "startup",
+    budget: undefined,
   };
 
   for (let index = 2; index < argv.length; index += 1) {
@@ -341,9 +383,11 @@ function parseArgs(argv) {
     if (value === "--client") {
       args.client = argv[index + 1] ?? "text";
       index += 1;
-    } else if (value === "--max-chars") {
-      args.maxChars = Number(argv[index + 1]);
+    } else if (value === "--budget") {
+      args.budget = Number(argv[index + 1]);
       index += 1;
+    } else if (!value.startsWith("-")) {
+      args.mode = value;
     }
   }
 
@@ -367,7 +411,8 @@ export async function runCli({ argv = process.argv, stdin = process.stdin, stdou
   const input = parseHookInput(raw);
   const context = await buildContext({
     cwd: input.cwd ?? process.cwd(),
-    maxChars: args.maxChars,
+    mode: args.mode,
+    budget: args.budget,
   });
 
   if (args.client === "codex" || args.client === "claude") {

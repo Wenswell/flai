@@ -71,20 +71,19 @@ test("buildContext injects user defaults, project now, active task status, and p
   const context = await buildContext({
     cwd: root,
     userFlaiDir: userFlai,
-    maxChars: 5000,
+    budget: 5000,
   });
 
-  assert.match(context, /<user-defaults>/);
+  assert.match(context, /<flai-context mode="startup"/);
+  assert.match(context, /<user-preferences\.md/);
   assert.match(context, /Use Chinese/);
-  assert.match(context, /<project-now>/);
+  assert.match(context, /<project-now/);
   assert.match(context, /Current task:/);
-  assert.match(context, /<conversation>/);
+  assert.match(context, /<conversation/);
   assert.match(context, /Use fixed conversation state/);
-  assert.match(context, /<issues>/);
-  assert.match(context, /flai-001/);
-  assert.match(context, /<active-task-status/);
+  assert.match(context, /<task-status\.md/);
   assert.match(context, /State: active/);
-  assert.match(context, /<context-policy>/);
+  assert.match(context, /<mode-rule/);
   assert.doesNotMatch(context, /SECRET LOG SHOULD NOT LOAD/);
 });
 
@@ -94,38 +93,26 @@ test("buildContext keeps output under the configured size limit", async () => {
   const context = await buildContext({
     cwd: root,
     userFlaiDir: userFlai,
-    maxChars: 700,
+    budget: 700,
   });
 
   assert.ok(context.length <= 700);
-  assert.match(context, /Context trimmed/);
+  assert.match(context, /<flai-context mode="startup"/);
 });
 
-test("buildContextReport shows token counts and switches between preview and full content", async () => {
+test("buildContextReport shows source rows with token counts and previews", async () => {
   const { root, userFlai } = await makeProject();
   const longText = `# Now\n\n${"visible ".repeat(80)}TAIL`;
   await writeFile(path.join(root, ".flai", "now.md"), longText, "utf8");
 
-  const preview = await buildContextReport({
+  const report = await buildContextReport({
     cwd: root,
     userFlaiDir: userFlai,
-    previewChars: 80,
   });
 
-  assert.match(preview, /mode: preview/);
-  assert.match(preview, /tokens: \d+/);
-  assert.match(preview, /preview:/);
-  assert.match(preview, /preview:\n  # Now visible visible/);
-  assert.match(preview, /\[preview trimmed\]/);
-  assert.doesNotMatch(preview, /TAIL/);
-
-  const full = await buildContextReport({
-    cwd: root,
-    userFlaiDir: userFlai,
-    full: true,
-  });
-
-  assert.match(full, /mode: full/);
-  assert.match(full, /content:/);
-  assert.match(full, /TAIL/);
+  assert.match(report, /mode: startup/);
+  assert.match(report, /\| source \| type \| chars \| tokens \| state \| preview \|/);
+  assert.match(report, /\.flai\/now\.md/);
+  assert.match(report, /# Now visible/);
+  assert.doesNotMatch(report, /TAIL/);
 });
