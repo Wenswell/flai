@@ -260,7 +260,7 @@ test("runCli context prints rendered context by default and sources table when r
     assert.doesNotMatch(sourcesStdout.output, /mode/);
     assert.match(sourcesStdout.output, /startup/);
     assert.doesNotMatch(sourcesStdout.output, /budget/);
-    assert.match(sourcesStdout.output, /\/5600/);
+    assert.match(sourcesStdout.output, /\/6500/);
     assert.match(sourcesStdout.output, /fit/);
     assert.match(sourcesStdout.output, /true/);
     assert.match(sourcesStdout.output, /source/);

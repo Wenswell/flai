@@ -4,9 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 
-import { normalizeMode, USER_DOCS } from "./config.mjs";
+import { normalizeMode, SOURCE_BUDGET, USER_DOCS } from "./config.mjs";
 import { checkPhase } from "../commands/phase.mjs";
 import { normalizePath, readText } from "../lib/common.mjs";
+
+const B = SOURCE_BUDGET;
 
 function contextSection(source, text, options = {}) {
   return {
@@ -14,7 +16,7 @@ function contextSection(source, text, options = {}) {
     type: options.type ?? "file",
     tag: options.tag ?? path.basename(source).replace(/[^A-Za-z0-9_-]/g, "-"),
     text: text.replace(/\r\n/g, "\n").trim(),
-    maxChars: options.maxChars ?? 1200,
+    maxChars: options.maxChars ?? B.medium,
   };
 }
 
@@ -71,7 +73,7 @@ async function addProjectDoc(sections, projectFlaiDir, name, options = {}) {
   }
 }
 
-async function addUserDocs(sections, userFlaiDir, names, maxChars = 700) {
+async function addUserDocs(sections, userFlaiDir, names, maxChars = B.small) {
   for (const name of names) {
     const filePath = path.join(userFlaiDir, name);
     const text = await readText(filePath);
@@ -92,7 +94,7 @@ async function addTaskDoc(sections, cwd, taskRef, name, options = {}) {
   const text = await readText(filePath);
   if (text.trim()) {
     const source = normalizePath(path.relative(cwd, filePath));
-    sections.push(contextSection(source, text, { tag: `task-${name}`, maxChars: options.maxChars ?? 1000 }));
+    sections.push(contextSection(source, text, { tag: `task-${name}`, maxChars: options.maxChars ?? B.medium }));
   }
 }
 
@@ -102,7 +104,7 @@ async function addPhasePolicy(sections, projectFlaiDir, mode) {
     sections.push(
       contextSection(normalizePath(path.join(".flai", "policy", `${mode}.md`)), text, {
         tag: "phase-policy",
-        maxChars: 800,
+        maxChars: B.medium,
       }),
     );
   }
@@ -127,7 +129,7 @@ function workflowStateSection(phaseCheck) {
   return contextSection(
     "workflow-state",
     lines.join("\n"),
-    { type: "generated", tag: "workflow-state", maxChars: 900 },
+    { type: "generated", tag: "workflow-state", maxChars: B.medium },
   );
 }
 
@@ -145,55 +147,55 @@ export async function collectContextSections(options = {}) {
 
   if (mode === "startup") {
     await addPhasePolicy(sections, projectFlaiDir, mode);
-    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 620 }));
-    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 600 });
-    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 520 });
-    await addProjectDoc(sections, projectFlaiDir, "project.md", { tag: "project-summary", maxChars: 620 });
-    await addUserDocs(sections, userFlaiDir, USER_DOCS, 420);
+    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: B.small }));
+    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: B.small });
+    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: B.small });
+    await addProjectDoc(sections, projectFlaiDir, "project.md", { tag: "project-summary", maxChars: B.small });
+    await addUserDocs(sections, userFlaiDir, USER_DOCS, B.small);
   } else if (mode === "brainstorm") {
     await addPhasePolicy(sections, projectFlaiDir, mode);
-    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 700 }));
-    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 1200 });
-    await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: 900 });
-    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
-    await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: 1400 });
-    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: 1000 });
-    await addProjectDoc(sections, projectFlaiDir, "project.md", { tag: "project-summary", maxChars: 900 });
-    await addUserDocs(sections, userFlaiDir, ["preferences.md"], 450);
+    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: B.medium }));
+    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: B.large });
+    await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: B.medium });
+    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: B.medium });
+    await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: B.large });
+    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: B.medium });
+    await addProjectDoc(sections, projectFlaiDir, "project.md", { tag: "project-summary", maxChars: B.medium });
+    await addUserDocs(sections, userFlaiDir, ["preferences.md"], B.small);
   } else if (mode === "implement") {
     await addPhasePolicy(sections, projectFlaiDir, mode);
-    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 650 }));
-    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
-    await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: 1300 });
-    await addTaskDoc(sections, cwd, taskRef, "implement.md", { maxChars: 1600 });
-    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: 900 });
-    await addProjectDoc(sections, projectFlaiDir, "project.md", { tag: "project-summary", maxChars: 900 });
-    await addUserDocs(sections, userFlaiDir, USER_DOCS, 420);
+    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: B.medium }));
+    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: B.medium });
+    await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: B.large });
+    await addTaskDoc(sections, cwd, taskRef, "implement.md", { maxChars: B.large });
+    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: B.medium });
+    await addProjectDoc(sections, projectFlaiDir, "project.md", { tag: "project-summary", maxChars: B.medium });
+    await addUserDocs(sections, userFlaiDir, USER_DOCS, B.small);
   } else if (mode === "review") {
     await addPhasePolicy(sections, projectFlaiDir, mode);
-    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 600 }));
-    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
-    await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: 900 });
-    await addTaskDoc(sections, cwd, taskRef, "review.md", { maxChars: 1400 });
-    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: 900 });
-    await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: 700 });
-    await addUserDocs(sections, userFlaiDir, ["preferences.md"], 420);
+    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: B.medium }));
+    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: B.medium });
+    await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: B.medium });
+    await addTaskDoc(sections, cwd, taskRef, "review.md", { maxChars: B.large });
+    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: B.medium });
+    await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: B.medium });
+    await addUserDocs(sections, userFlaiDir, ["preferences.md"], B.small);
   } else if (mode === "debug") {
     await addPhasePolicy(sections, projectFlaiDir, mode);
-    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 650 }));
-    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
-    await addTaskDoc(sections, cwd, taskRef, "review.md", { maxChars: 900 });
-    await addTaskDoc(sections, cwd, taskRef, "log.md", { maxChars: 1600 });
-    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: 900 });
-    await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: 700 });
-    await addUserDocs(sections, userFlaiDir, ["failure-patterns.md", "preferences.md"], 420);
+    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: B.medium }));
+    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: B.medium });
+    await addTaskDoc(sections, cwd, taskRef, "review.md", { maxChars: B.medium });
+    await addTaskDoc(sections, cwd, taskRef, "log.md", { maxChars: B.large });
+    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: B.medium });
+    await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: B.medium });
+    await addUserDocs(sections, userFlaiDir, ["failure-patterns.md", "preferences.md"], B.small);
   }
 
   sections.push(
     contextSection("project-doc-index", await listProjectDocs(projectFlaiDir), {
       type: "generated",
       tag: "docs-index",
-      maxChars: mode === "startup" ? 500 : 800,
+      maxChars: mode === "startup" ? B.small : B.medium,
     }),
   );
 

@@ -148,7 +148,7 @@ test("buildContextAnalysis shows source rows with token counts and previews", as
   const nowRow = analysis.rows.find((row) => row.source === ".flai/now.md");
 
   assert.equal(analysis.mode, "startup");
-  assert.equal(analysis.budget, 5600);
+  assert.equal(analysis.budget, 6500);
   assert.ok(nowRow);
   assert.equal(nowRow.type, "file");
   assert.equal(typeof nowRow.tokens, "number");
