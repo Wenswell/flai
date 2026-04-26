@@ -47,6 +47,7 @@ flai init .
 `flai phase` records the current workflow phase in `.flai/.phase`. When `flai context` is run without an explicit mode, it uses the current phase. `flai task start` sets the phase to `implement`; `flai task finish` resets it to `startup`.
 
 Phase-specific defaults live in `.flai/policy/<phase>.md`; `workflow.md` is no longer generated.
+`.flai/conversation.md` is injected only for `startup` and `brainstorm`; task work should move state into task files.
 
 Every rendered context includes `<workflow-state>` with one active phase.
 

@@ -94,6 +94,7 @@ test("buildContext injects user defaults, project now, active task status, and p
   assert.match(context, /<workflow-state/);
   assert.doesNotMatch(context, /<mode-rule/);
   assert.match(context, /Active phase: startup/);
+  assert.match(context, /Sync target: \.flai\/conversation\.md/);
   assert.ok(context.indexOf("<workflow-state") < context.indexOf("<project-now"));
   assert.match(context, /<phase-policy/);
   assert.match(context, /Read workflow state first/);
@@ -114,6 +115,9 @@ test("explicit context mode drives workflow-state even when saved phase differs"
   assert.match(context, /<flai-context mode="review"/);
   assert.match(context, /Active phase: review/);
   assert.doesNotMatch(context, /Saved phase/);
+  assert.doesNotMatch(context, /<conversation/);
+  assert.doesNotMatch(context, /Use fixed conversation state/);
+  assert.doesNotMatch(context, /Sync target: \.flai\/conversation\.md/);
   assert.match(context, /review phase should have review\.md checks/);
   assert.match(context, /Next command: flai context review --sources/);
   assert.match(context, /Check regressions/);

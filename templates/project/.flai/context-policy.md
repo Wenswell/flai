@@ -8,8 +8,8 @@ The session hook injects compact context from:
 - the current `.flai/policy/<phase>.md`
 - user-level `.flai` defaults when available
 - `.flai/now.md`
-- `.flai/conversation.md`
-- `.flai/issues.md`
+- `.flai/conversation.md` in startup/brainstorm
+- phase-dependent project docs such as `.flai/issues.md`
 - current task `status.md`
 - project `.flai` document index
 

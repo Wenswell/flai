@@ -109,17 +109,24 @@ async function addPhasePolicy(sections, projectFlaiDir, mode) {
 }
 
 function workflowStateSection(phaseCheck) {
+  const lines = [
+    `Status: ${phaseCheck.status}.`,
+    `Active phase: ${phaseCheck.phase}.`,
+    `Current task: ${phaseCheck.currentTask || "none"}.`,
+    phaseCheck.issues.length ? "Issues:" : "Issues: none.",
+    ...phaseCheck.issues.map((issue) => `- ${issue}`),
+    `Next command: ${phaseCheck.nextCommand}.`,
+  ];
+
+  if (["startup", "brainstorm"].includes(phaseCheck.phase)) {
+    lines.push("Sync target: .flai/conversation.md for goal, conclusions, open questions, and next step.");
+  }
+
+  lines.push("Rule: resolve non-READY status before continuing unless the user overrides it.");
+
   return contextSection(
     "workflow-state",
-    [
-      `Status: ${phaseCheck.status}.`,
-      `Active phase: ${phaseCheck.phase}.`,
-      `Current task: ${phaseCheck.currentTask || "none"}.`,
-      phaseCheck.issues.length ? "Issues:" : "Issues: none.",
-      ...phaseCheck.issues.map((issue) => `- ${issue}`),
-      `Next command: ${phaseCheck.nextCommand}.`,
-      "Rule: resolve non-READY status before continuing unless the user overrides it.",
-    ].join("\n"),
+    lines.join("\n"),
     { type: "generated", tag: "workflow-state", maxChars: 900 },
   );
 }
@@ -156,7 +163,6 @@ export async function collectContextSections(options = {}) {
   } else if (mode === "implement") {
     await addPhasePolicy(sections, projectFlaiDir, mode);
     if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 650 }));
-    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 900 });
     await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
     await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: 1300 });
     await addTaskDoc(sections, cwd, taskRef, "implement.md", { maxChars: 1600 });
@@ -166,7 +172,6 @@ export async function collectContextSections(options = {}) {
   } else if (mode === "review") {
     await addPhasePolicy(sections, projectFlaiDir, mode);
     if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 600 }));
-    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 800 });
     await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
     await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: 900 });
     await addTaskDoc(sections, cwd, taskRef, "review.md", { maxChars: 1400 });
@@ -176,7 +181,6 @@ export async function collectContextSections(options = {}) {
   } else if (mode === "debug") {
     await addPhasePolicy(sections, projectFlaiDir, mode);
     if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 650 }));
-    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 800 });
     await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
     await addTaskDoc(sections, cwd, taskRef, "review.md", { maxChars: 900 });
     await addTaskDoc(sections, cwd, taskRef, "log.md", { maxChars: 1600 });

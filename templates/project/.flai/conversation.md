@@ -1,6 +1,6 @@
 # Conversation
 
-## Current Goal
+## Goal
 
 - Initialize active discussion state.
 
@@ -8,19 +8,11 @@
 
 - None.
 
-## Plan
-
-- None.
-
 ## Open Questions
 
 - None.
 
-## Decisions
-
-- None.
-
-## Issue Candidates
+## Next
 
 - None.
 
