@@ -1,5 +1,10 @@
-/.*/
-!.github
+/.claude
+/.codex
+/.flai
+/.references
+/CLAUDE.md
+/AGENTS.md
+!/.github
 
 # macOS system files
 .DS_Store

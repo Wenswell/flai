@@ -118,7 +118,6 @@ async function listProjectDocs(projectAiDir) {
   const entries = await readdir(projectAiDir, { withFileTypes: true });
   const docs = entries
     .filter((entry) => {
-      if (entry.name === "archive") return false;
       if (entry.name === "scripts") return false;
       return entry.isDirectory() || entry.name.endsWith(".md");
     })
