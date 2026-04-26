@@ -76,8 +76,10 @@ export function analyzeSections(sections, options = {}) {
     mode,
     budget,
     text: chunks.join("\n\n"),
+    tokens: estimateTokens(chunks.join("\n\n")),
     rows: rows.map(({ section, state, renderedText }) => ({
       source: section.source,
+      budget: section.maxChars,
       type: section.type,
       chars: section.text.length,
       tokens: estimateTokens(section.text),

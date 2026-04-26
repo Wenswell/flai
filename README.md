@@ -40,7 +40,7 @@ flai init .
 
 `flai init` creates project `.flai` docs plus Codex and Claude Code hook adapters. Runtime code stays in the installed npm package.
 
-`flai context` prints rendered context for the current project. Modes are `startup`, `brainstorm`, `implement`, `review`, and `debug`. Use `--budget` to change the character budget. Use `--sources` to print one compact `console.table` with mode, budget, used chars, source reason, tokens, state, and a 20-character preview.
+`flai context` prints rendered context for the current project. Modes are `startup`, `brainstorm`, `implement`, `review`, and `debug`. Use `--budget` to change the character budget. Use `--sources` to print one compact `console.table` with budgeted source, type/mode, chars, tokens, fit, reason, and a 20-character preview.
 
 `flai task` creates and selects lightweight task directories under `.flai/tasks/`.
 

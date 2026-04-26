@@ -65,7 +65,7 @@ test("updateUser updates managed files and preserves local edits by default", as
   assert.equal(result.updated.includes(path.join(userFlaiDir, "preferences.md")), true);
   assert.equal(result.removed.includes(path.join(userFlaiDir, "workflow.md")), true);
   assert.equal(result.conflicts.includes(path.join(userFlaiDir, "failure-patterns.md")), true);
-  assert.match(await readFile(path.join(userFlaiDir, "preferences.md"), "utf8"), /默认技术栈/);
+  assert.match(await readFile(path.join(userFlaiDir, "preferences.md"), "utf8"), /机器般的客观回复/);
   assert.equal(existsSync(path.join(userFlaiDir, "workflow.md")), false);
   assert.equal(await readFile(path.join(userFlaiDir, "failure-patterns.md"), "utf8"), localFailurePatterns);
 });
@@ -257,16 +257,21 @@ test("runCli context prints rendered context by default and sources table when r
       stderr: createWritable().stream,
     });
 
-    assert.match(sourcesStdout.output, /mode/);
+    assert.doesNotMatch(sourcesStdout.output, /mode/);
     assert.match(sourcesStdout.output, /startup/);
-    assert.match(sourcesStdout.output, /budget/);
-    assert.match(sourcesStdout.output, /5600/);
-    assert.match(sourcesStdout.output, /used/);
+    assert.doesNotMatch(sourcesStdout.output, /budget/);
+    assert.match(sourcesStdout.output, /\/5600/);
+    assert.match(sourcesStdout.output, /fit/);
+    assert.match(sourcesStdout.output, /true/);
     assert.match(sourcesStdout.output, /source/);
     assert.match(sourcesStdout.output, /reason/);
     assert.match(sourcesStdout.output, /current project state/);
     assert.match(sourcesStdout.output, /preview/);
-    assert.match(sourcesStdout.output, /\.flai\/now\.md/);
+    assert.match(sourcesStdout.output, /\[flai-context\]/);
+    assert.match(sourcesStdout.output, /\[startup\]/);
+    assert.match(sourcesStdout.output, /\[rendered context\]/);
+    assert.match(sourcesStdout.output, /now\.md/);
+    assert.doesNotMatch(sourcesStdout.output, /\.flai\/now\.md/);
   } finally {
     process.chdir(previousCwd);
   }

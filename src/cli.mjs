@@ -29,6 +29,10 @@ const ROOT_DIR = path.resolve(SCRIPT_DIR, "..");
 const TEMPLATES_DIR = path.join(ROOT_DIR, "templates");
 const PACKAGE_JSON = JSON.parse(await readFile(path.join(ROOT_DIR, "package.json"), "utf8"));
 
+function sourceFileName(source) {
+  return path.posix.basename(source.replaceAll("\\", "/"));
+}
+
 function withRuntime(options = {}) {
   return {
     ...options,
@@ -186,18 +190,26 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
       writeTable(
         stdout,
         stderr,
-        analysis.rows.map(({ source, type, chars, tokens, state, reason, preview }, index) => ({
-          mode: index === 0 ? analysis.mode : "",
-          budget: index === 0 ? analysis.budget : "",
-          used: index === 0 ? analysis.text.length : "",
-          source,
-          type,
-          chars,
-          tokens,
-          state,
-          reason,
-          preview,
-        })),
+        [
+          {
+            source: "[flai-context]",
+            type: `[${analysis.mode}]`,
+            chars: `${analysis.text.length}/${analysis.budget}`,
+            tokens: analysis.tokens,
+            fit: true,
+            reason: "[rendered context]",
+            preview: "",
+          },
+          ...analysis.rows.map(({ source, budget: sourceBudget, type, tokens, state, reason, preview, renderedChars }) => ({
+            source: sourceFileName(source),
+            type,
+            chars: `${renderedChars}/${sourceBudget}`,
+            tokens,
+            fit: state === "used" ? true : state,
+            reason,
+            preview,
+          })),
+        ],
       );
       return;
     }
