@@ -117,7 +117,7 @@ function parseArgs(argv) {
 function usage() {
   return `Usage:
   pnpm flai init [path] [-f]              Initialize a project with .flai docs and hooks
-  pnpm flai context [mode] [--budget N]   Print rendered context for startup, brainstorm, implement, review, debug, or task
+  pnpm flai context [mode] [--budget N]   Print rendered context for startup, brainstorm, implement, review, or debug
   pnpm flai context [mode] --sources      Print compact source table for a context mode
   pnpm flai task create "title"           Create a lightweight task
   pnpm flai task start <name>             Set the current task
@@ -125,7 +125,7 @@ function usage() {
   pnpm flai task current                  Print the current task
   pnpm flai task finish                   Clear the current task
   pnpm flai phase current                 Print the current workflow phase
-  pnpm flai phase set <mode>              Set startup, brainstorm, implement, review, debug, or task
+  pnpm flai phase set <mode>              Set startup, brainstorm, implement, review, or debug
   pnpm flai phase check                   Check current phase requirements
   pnpm flai user [path] [-f]              Initialize user-level defaults, usually ~/.flai
   pnpm flai update-user [path] [-f]       Update managed user defaults from installed templates

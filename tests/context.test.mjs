@@ -84,6 +84,7 @@ test("buildContext injects user defaults, project now, active task status, and p
   assert.match(context, /<user-preferences\.md/);
   assert.match(context, /Use Chinese/);
   assert.doesNotMatch(context, /user-workflow\.md/);
+  assert.doesNotMatch(context, /Failure Patterns/);
   assert.match(context, /<project-now/);
   assert.match(context, /Current task:/);
   assert.match(context, /<conversation/);

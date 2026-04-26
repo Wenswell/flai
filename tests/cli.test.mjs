@@ -347,6 +347,15 @@ test("runCli phase supports current, set, and check", async () => {
     });
     assert.equal(currentStdout.output, "startup\n");
 
+    await writeFile(path.join(repoDir, ".flai", ".phase"), "task\n", "utf8");
+    const legacyCurrentStdout = createWritable();
+    await runCli({
+      argv: ["node", "flai", "phase", "current"],
+      stdout: legacyCurrentStdout.stream,
+      stderr: createWritable().stream,
+    });
+    assert.equal(legacyCurrentStdout.output, "startup\n");
+
     const setStdout = createWritable();
     await runCli({
       argv: ["node", "flai", "phase", "set", "review"],
@@ -370,7 +379,7 @@ test("runCli phase supports current, set, and check", async () => {
       stderr: createWritable().stream,
     });
     assert.match(checkStdout.output, /Workflow status: NO_TASK/);
-    assert.match(checkStdout.output, /Next command: flai task create "title"/);
+    assert.match(checkStdout.output, /Next command: flai task list/);
     process.exitCode = 0;
   } finally {
     process.chdir(previousCwd);

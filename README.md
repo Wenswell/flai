@@ -40,7 +40,7 @@ flai init .
 
 `flai init` creates project `.flai` docs plus Codex and Claude Code hook adapters. Runtime code stays in the installed npm package.
 
-`flai context` prints rendered context for the current project. Modes are `startup`, `brainstorm`, `implement`, `review`, `debug`, and `task`. Use `--budget` to change the character budget. Use `--sources` to print a compact `console.table` source view with chars, tokens, state, and a 20-character preview.
+`flai context` prints rendered context for the current project. Modes are `startup`, `brainstorm`, `implement`, `review`, and `debug`. Use `--budget` to change the character budget. Use `--sources` to print a compact `console.table` source view with chars, tokens, state, and a 20-character preview.
 
 `flai task` creates and selects lightweight task directories under `.flai/tasks/`.
 
@@ -54,7 +54,7 @@ Every rendered context includes `<workflow-state>` with one active phase.
 |---|---|---|
 | `READY` | Active phase has enough context. | Continue with `flai context <phase>`. |
 | `NOT_READY` | Required phase context is missing. | Fill the missing task file or acknowledge the gap. |
-| `NO_TASK` | The active phase needs a task. | Run `flai task create "title"` or start an existing task. |
+| `NO_TASK` | The active phase needs a task. | Create a task for `implement`, or run `flai task list` for `review`/`debug`. |
 | `STALE_POINTER` | `.flai/.current-task` points to a missing file. | Run `flai task finish`. |
 
 `flai update-user` updates user defaults from the installed package templates. It overwrites or removes only files still matching a previous managed template. Locally edited files are reported as conflicts unless `-f` is used.

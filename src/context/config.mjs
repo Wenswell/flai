@@ -4,10 +4,9 @@ export const MODE_BUDGETS = {
   implement: 6500,
   review: 5200,
   debug: 6500,
-  task: 4200,
 };
 
-export const USER_DOCS = ["preferences.md", "failure-patterns.md"];
+export const USER_DOCS = ["preferences.md"];
 export const MODES = new Set(Object.keys(MODE_BUDGETS));
 
 export function normalizeMode(value) {

@@ -118,7 +118,7 @@ function workflowStateSection(phaseCheck) {
       phaseCheck.issues.length ? "Issues:" : "Issues: none.",
       ...phaseCheck.issues.map((issue) => `- ${issue}`),
       `Next command: ${phaseCheck.nextCommand}.`,
-      "Rule: do not continue normal/deep work while status is NOT_READY or STALE_POINTER unless the user explicitly overrides it.",
+      "Rule: resolve non-READY status before continuing unless the user overrides it.",
     ].join("\n"),
     { type: "generated", tag: "workflow-state", maxChars: 900 },
   );
@@ -183,13 +183,6 @@ export async function collectContextSections(options = {}) {
     await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: 900 });
     await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: 700 });
     await addUserDocs(sections, userFlaiDir, ["failure-patterns.md", "preferences.md"], 420);
-  } else if (mode === "task") {
-    await addPhasePolicy(sections, projectFlaiDir, mode);
-    if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 700 }));
-    await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 1000 });
-    await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 1100 });
-    await addTaskDoc(sections, cwd, taskRef, "plan.md", { maxChars: 1300 });
-    await addTaskDoc(sections, cwd, taskRef, "decisions.md", { maxChars: 1000 });
   }
 
   sections.push(

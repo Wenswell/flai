@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { normalizeMode } from "../context/config.mjs";
+import { MODES, normalizeMode } from "../context/config.mjs";
 import { getCurrentTask } from "./task.mjs";
 import { normalize, readText } from "../lib/common.mjs";
 
@@ -12,7 +12,10 @@ const PHASE_FILE = ".phase";
 export async function getCurrentPhase(options = {}) {
   const repoDir = normalize(options.repoDir ?? process.cwd());
   const phase = (await readText(path.join(repoDir, ".flai", PHASE_FILE))).trim();
-  return normalizeMode(phase || "startup");
+  if (!phase) {
+    return "startup";
+  }
+  return MODES.has(phase) ? phase : "startup";
 }
 
 export async function setCurrentPhase(options = {}) {
@@ -43,7 +46,8 @@ async function currentTaskDir(repoDir) {
 
 function nextCommandFor(status, phase) {
   if (status === "STALE_POINTER") return "flai task finish";
-  if (status === "NO_TASK") return "flai task create \"title\"";
+  if (status === "NO_TASK" && phase === "implement") return "flai task create \"title\"";
+  if (status === "NO_TASK") return "flai task list";
   if (status === "NOT_READY") return `flai context ${phase} --sources`;
   return `flai context ${phase}`;
 }
@@ -60,7 +64,7 @@ export async function checkPhase(options = {}) {
     issues.push(`Current task points to a missing file: ${task.current}`);
   }
 
-  if (["implement", "review", "debug", "task"].includes(phase) && !task.current) {
+  if (["implement", "review", "debug"].includes(phase) && !task.current) {
     status = "NO_TASK";
     issues.push(`${phase} phase needs a current task.`);
   }
