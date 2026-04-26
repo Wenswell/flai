@@ -1,27 +1,27 @@
-# 当前状态
+# Current State
 
-最后更新：{{DATE}}
+Last updated: {{DATE}}
 
-当前任务：无
+Current task: none
 
-当前对话：.flai/conversation.md
+Current conversation: .flai/conversation.md
 
-## 重点
+## Focus
 
-初始化项目上下文。
+Initialize project context.
 
-## 状态
+## Status
 
-- 已安装轻量 `.flai` 上下文文件。
-- 已安装 Codex 和 Claude Code hook 适配。
-- 当前讨论状态写入 `.flai/conversation.md`。
-- 可执行事项写入 `.flai/issues.md`。
+- Lightweight `.flai` context files are installed.
+- Codex and Claude Code hook adapters are installed.
+- Active discussion state goes in `.flai/conversation.md`.
+- Actionable items go in `.flai/issues.md`.
 
-## 下一步
+## Next
 
-- 在 `.flai/project.md` 填入真实项目事实。
-- 正常开始工作。
+- Fill real project facts in `.flai/project.md`.
+- Start normal work.
 
-## 阻塞项
+## Blockers
 
-- 无。
+- None.

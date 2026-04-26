@@ -1,16 +1,16 @@
-# 项目
+# Project
 
-## 目的
+## Purpose
 
-描述 {{PROJECT_NAME}}。
+Describe {{PROJECT_NAME}}.
 
-## 结构
+## Structure
 
-- `.flai/`：项目上下文和任务状态
-- `.flai/tasks/`：每个 normal/deep 任务或已处理 issue 一个目录
-- `.codex/`：Codex hook 适配
-- `.claude/`：Claude Code hook 适配
+- `.flai/`: project context and task state
+- `.flai/tasks/`: one directory per normal/deep task or handled issue
+- `.codex/`: Codex hook adapter
+- `.claude/`: Claude Code hook adapter
 
-## 命令
+## Commands
 
-- 打印上下文：`flai context`
+- Print context: `flai context`
