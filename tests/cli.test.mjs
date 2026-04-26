@@ -242,12 +242,12 @@ test("runCli context prints rendered context by default and sources table when r
 
     const contextStdout = createWritable();
     await runCli({
-      argv: ["node", "flai", "context", "startup", "--budget", "900"],
+      argv: ["node", "flai", "context", "startup", "--budget", "1100"],
       stdout: contextStdout.stream,
       stderr: createWritable().stream,
     });
 
-    assert.match(contextStdout.output, /<flai-context mode="startup" budget="900">/);
+    assert.match(contextStdout.output, /<flai-context mode="startup" budget="1100">/);
     assert.match(contextStdout.output, /<project-now/);
 
     const sourcesStdout = createWritable();
@@ -260,7 +260,7 @@ test("runCli context prints rendered context by default and sources table when r
     assert.doesNotMatch(sourcesStdout.output, /mode/);
     assert.match(sourcesStdout.output, /startup/);
     assert.doesNotMatch(sourcesStdout.output, /budget/);
-    assert.match(sourcesStdout.output, /\/5600/);
+    assert.match(sourcesStdout.output, /\/8500/);
     assert.match(sourcesStdout.output, /fit/);
     assert.match(sourcesStdout.output, /true/);
     assert.match(sourcesStdout.output, /source/);
@@ -364,11 +364,11 @@ test("runCli phase supports current, set, and check", async () => {
 
     const contextStdout = createWritable();
     await runCli({
-      argv: ["node", "flai", "context", "--budget", "900"],
+      argv: ["node", "flai", "context", "--budget", "1100"],
       stdout: contextStdout.stream,
       stderr: createWritable().stream,
     });
-    assert.match(contextStdout.output, /<flai-context mode="review" budget="900">/);
+    assert.match(contextStdout.output, /<flai-context mode="review" budget="1100">/);
 
     const checkStdout = createWritable();
     await runCli({
