@@ -57,6 +57,11 @@ async function makeProject() {
     "utf8",
   );
   await writeFile(
+    path.join(flai, "policy", "review.md"),
+    "# Review Phase\n\n- Check regressions.\n",
+    "utf8",
+  );
+  await writeFile(
     path.join(taskDir, "status.md"),
     "# Status\n\nState: active\n\nNext: finish shared script.\n",
     "utf8",
@@ -85,13 +90,32 @@ test("buildContext injects user defaults, project now, active task status, and p
   assert.match(context, /Use fixed conversation state/);
   assert.match(context, /<task-status\.md/);
   assert.match(context, /State: active/);
-  assert.match(context, /<mode-rule/);
   assert.match(context, /<workflow-state/);
-  assert.match(context, /Current phase: startup/);
+  assert.doesNotMatch(context, /<mode-rule/);
+  assert.match(context, /Active phase: startup/);
   assert.ok(context.indexOf("<workflow-state") < context.indexOf("<project-now"));
   assert.match(context, /<phase-policy/);
   assert.match(context, /Read workflow state first/);
   assert.doesNotMatch(context, /SECRET LOG SHOULD NOT LOAD/);
+});
+
+test("explicit context mode drives workflow-state even when saved phase differs", async () => {
+  const { root, userFlai } = await makeProject();
+  await writeFile(path.join(root, ".flai", ".phase"), "startup\n", "utf8");
+
+  const context = await buildContext({
+    cwd: root,
+    userFlaiDir: userFlai,
+    mode: "review",
+    budget: 5000,
+  });
+
+  assert.match(context, /<flai-context mode="review"/);
+  assert.match(context, /Active phase: review/);
+  assert.doesNotMatch(context, /Saved phase/);
+  assert.match(context, /review phase should have review\.md checks/);
+  assert.match(context, /Next command: flai context review --sources/);
+  assert.match(context, /Check regressions/);
 });
 
 test("buildContext keeps output under the configured size limit", async () => {

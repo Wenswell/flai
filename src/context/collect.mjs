@@ -5,7 +5,7 @@ import path from "node:path";
 import process from "node:process";
 
 import { normalizeMode, USER_DOCS } from "./config.mjs";
-import { checkPhase, getCurrentPhase } from "../commands/phase.mjs";
+import { checkPhase } from "../commands/phase.mjs";
 import { normalizePath, readText } from "../lib/common.mjs";
 
 function contextSection(source, text, options = {}) {
@@ -113,7 +113,7 @@ function workflowStateSection(phaseCheck) {
     "workflow-state",
     [
       `Status: ${phaseCheck.status}.`,
-      `Current phase: ${phaseCheck.phase}.`,
+      `Active phase: ${phaseCheck.phase}.`,
       `Current task: ${phaseCheck.currentTask || "none"}.`,
       phaseCheck.issues.length ? "Issues:" : "Issues: none.",
       ...phaseCheck.issues.map((issue) => `- ${issue}`),
@@ -133,8 +133,7 @@ export async function collectContextSections(options = {}) {
   const projectFlaiDir = path.resolve(options.projectFlaiDir ?? path.join(cwd, ".flai"));
   const nowText = await readText(path.join(projectFlaiDir, "now.md"));
   const taskRef = await readCurrentTaskRef(projectFlaiDir, nowText);
-  const phase = await getCurrentPhase({ repoDir: cwd });
-  const phaseCheck = await checkPhase({ repoDir: cwd, phase });
+  const phaseCheck = await checkPhase({ repoDir: cwd, phase: mode });
   const sections = [workflowStateSection(phaseCheck)];
 
   if (mode === "startup") {
@@ -199,20 +198,6 @@ export async function collectContextSections(options = {}) {
       tag: "docs-index",
       maxChars: mode === "startup" ? 500 : 800,
     }),
-  );
-
-  sections.push(
-    contextSection(
-      "mode-rule",
-      [
-        `Context mode: ${mode}.`,
-        "User-facing workflow stays conversational.",
-        "Use tiny for clear low-risk changes.",
-        "Use normal or deep only when scope, risk, or uncertainty justifies task files.",
-        "Read more files on demand instead of assuming omitted context.",
-      ].join("\n"),
-      { type: "generated", tag: "mode-rule", maxChars: 520 },
-    ),
   );
 
   return sections.filter((section) => section.text.trim());

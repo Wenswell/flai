@@ -48,13 +48,13 @@ flai init .
 
 Phase-specific defaults live in `.flai/policy/<phase>.md`; `workflow.md` is no longer generated.
 
-Every rendered context includes `<workflow-state>`.
+Every rendered context includes `<workflow-state>` with one active phase.
 
 | status | meaning | next step |
 |---|---|---|
-| `READY` | Current phase has enough context. | Continue with `flai context <phase>`. |
+| `READY` | Active phase has enough context. | Continue with `flai context <phase>`. |
 | `NOT_READY` | Required phase context is missing. | Fill the missing task file or acknowledge the gap. |
-| `NO_TASK` | The current phase needs a task. | Run `flai task create "title"` or start an existing task. |
+| `NO_TASK` | The active phase needs a task. | Run `flai task create "title"` or start an existing task. |
 | `STALE_POINTER` | `.flai/.current-task` points to a missing file. | Run `flai task finish`. |
 
 `flai update-user` updates user defaults from the installed package templates. It overwrites or removes only files still matching a previous managed template. Locally edited files are reported as conflicts unless `-f` is used.

@@ -4,7 +4,7 @@
 
 The session hook injects compact context from:
 
-- `<workflow-state>`: current phase, task state, missing items, and next command
+- `<workflow-state>`: active phase, task state, missing items, and next command
 - the current `.flai/policy/<phase>.md`
 - user-level `.flai` defaults when available
 - `.flai/now.md`
@@ -27,9 +27,9 @@ If hook context is missing, read these in order:
 
 AI must read `<workflow-state>` first:
 
-- `READY`: current phase has enough context to continue.
+- `READY`: active phase has enough context to continue.
 - `NOT_READY`: required phase context is missing.
-- `NO_TASK`: current phase needs a task, but no task is active.
+- `NO_TASK`: active phase needs a task, but no task is active.
 - `STALE_POINTER`: current task points to a missing file.
 
 When status is not `READY`, prioritize `Next command`.
