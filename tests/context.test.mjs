@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildContext, buildContextReport } from "../src/context.mjs";
+import { buildContext, buildContextAnalysis } from "../src/context.mjs";
 
 async function makeProject() {
   const root = await mkdtemp(path.join(tmpdir(), "ai-context-"));
@@ -100,19 +100,22 @@ test("buildContext keeps output under the configured size limit", async () => {
   assert.match(context, /<flai-context mode="startup"/);
 });
 
-test("buildContextReport shows source rows with token counts and previews", async () => {
+test("buildContextAnalysis shows source rows with token counts and previews", async () => {
   const { root, userFlai } = await makeProject();
   const longText = `# Now\n\n${"visible ".repeat(80)}TAIL`;
   await writeFile(path.join(root, ".flai", "now.md"), longText, "utf8");
 
-  const report = await buildContextReport({
+  const analysis = await buildContextAnalysis({
     cwd: root,
     userFlaiDir: userFlai,
   });
+  const nowRow = analysis.rows.find((row) => row.source === ".flai/now.md");
 
-  assert.match(report, /mode: startup/);
-  assert.match(report, /\| source \| type \| chars \| tokens \| state \| preview \|/);
-  assert.match(report, /\.flai\/now\.md/);
-  assert.match(report, /# Now visible/);
-  assert.doesNotMatch(report, /TAIL/);
+  assert.equal(analysis.mode, "startup");
+  assert.equal(analysis.budget, 5600);
+  assert.ok(nowRow);
+  assert.equal(nowRow.type, "file");
+  assert.equal(typeof nowRow.tokens, "number");
+  assert.match(nowRow.preview, /# Now visible/);
+  assert.doesNotMatch(nowRow.preview, /TAIL/);
 });

@@ -6,7 +6,7 @@ import path from "node:path";
 import process from "node:process";
 
 const MODE_BUDGETS = {
-  startup: 2600,
+  startup: 5600,
   brainstorm: 5000,
   implement: 6500,
   review: 5200,
@@ -334,30 +334,6 @@ export async function buildContextAnalysis(options = {}) {
 
 export async function buildContext(options = {}) {
   return (await buildContextAnalysis(options)).text;
-}
-
-export async function buildContextSources(options = {}) {
-  return (await buildContextAnalysis(options)).rows;
-}
-
-export async function buildContextReport(options = {}) {
-  const analysis = await buildContextAnalysis(options);
-  const lines = [
-    "# .flai context sources",
-    "",
-    `mode: ${analysis.mode}`,
-    `budget: ${analysis.budget}`,
-    `chars: ${analysis.text.length}`,
-    "",
-    "| source | type | chars | tokens | state | preview |",
-    "|---|---|---:|---:|---|---|",
-  ];
-
-  for (const row of analysis.rows) {
-    lines.push(`| ${row.source} | ${row.type} | ${row.chars} | ${row.tokens} | ${row.state} | ${row.preview} |`);
-  }
-
-  return lines.join("\n");
 }
 
 function parseHookInput(raw) {

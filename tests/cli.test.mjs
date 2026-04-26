@@ -245,7 +245,7 @@ test("runCli context prints rendered context by default and sources table when r
     });
 
     assert.match(sourcesStdout.output, /mode: startup/);
-    assert.match(sourcesStdout.output, /budget: 2600/);
+    assert.match(sourcesStdout.output, /budget: 5600/);
     assert.match(sourcesStdout.output, /source/);
     assert.match(sourcesStdout.output, /preview/);
     assert.match(sourcesStdout.output, /\.flai\/now\.md/);
