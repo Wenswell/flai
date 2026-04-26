@@ -210,5 +210,36 @@ test("runCli prints help for help command", async () => {
   assert.match(stdout.output, /Initialize user-level defaults/);
   assert.match(stdout.output, /Update managed user defaults/);
   assert.match(stdout.output, /Update the global flai package/);
-  assert.match(stdout.output, /Print startup context/);
+  assert.match(stdout.output, /Print context files with token counts/);
+});
+
+test("runCli context prints previews by default and full content when requested", async () => {
+  const repoDir = await tempRoot("cli-context");
+  await mkdir(path.join(repoDir, ".flai"), { recursive: true });
+  await writeFile(path.join(repoDir, ".flai", "project.md"), "# Project\n\nShort project.\n", "utf8");
+  await writeFile(path.join(repoDir, ".flai", "context-policy.md"), "# Policy\n\nShort policy.\n", "utf8");
+  await writeFile(path.join(repoDir, ".flai", "now.md"), `# Now\n\n${"visible ".repeat(80)}TAIL`, "utf8");
+
+  const previewStdout = createWritable();
+  await runCli({
+    argv: ["node", "flai", "context", repoDir, "--max", "80"],
+    stdout: previewStdout.stream,
+    stderr: createWritable().stream,
+  });
+
+  assert.match(previewStdout.output, /mode: preview/);
+  assert.match(previewStdout.output, /tokens: \d+/);
+  assert.match(previewStdout.output, /preview:/);
+  assert.doesNotMatch(previewStdout.output, /TAIL/);
+
+  const fullStdout = createWritable();
+  await runCli({
+    argv: ["node", "flai", "context", repoDir, "--full"],
+    stdout: fullStdout.stream,
+    stderr: createWritable().stream,
+  });
+
+  assert.match(fullStdout.output, /mode: full/);
+  assert.match(fullStdout.output, /content:/);
+  assert.match(fullStdout.output, /TAIL/);
 });

@@ -11,7 +11,7 @@ import path from "node:path";
 import process from "node:process";
 import { promisify } from "node:util";
 
-import { buildContext } from "./context.mjs";
+import { buildContextReport } from "./context.mjs";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(SCRIPT_DIR, "..");
@@ -229,6 +229,7 @@ function parseArgs(argv) {
     confirm: false,
     help: false,
     maxChars: undefined,
+    full: false,
   };
 
   for (let index = 3; index < argv.length; index += 1) {
@@ -242,6 +243,8 @@ function parseArgs(argv) {
     } else if (value === "--max" || value === "--max-chars") {
       args.maxChars = Number(argv[index + 1]);
       index += 1;
+    } else if (value === "--full") {
+      args.full = true;
     } else if (value === "-f" || value === "--force") {
       args.force = true;
       args.confirm = true;
@@ -269,7 +272,7 @@ function usage() {
   pnpm flai update-user [path] [-f]       Update managed user defaults from installed templates
   pnpm flai self-update [path] [-f]       Update the global flai package, then user defaults
   pnpm flai uninstall-user [path] -f      Remove user-level defaults; requires -f
-  pnpm flai context [path] [--max <chars>] Print startup context for a project
+  pnpm flai context [path] [--max <chars>] [--full] Print context files with token counts and previews; --full prints all content
   pnpm flai help                          Show this help
 `;
 }
@@ -322,7 +325,13 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
   }
 
   if (args.command === "context") {
-    stdout.write(`${await buildContext({ cwd: args.path ?? process.cwd(), maxChars: args.maxChars })}\n`);
+    stdout.write(
+      `${await buildContextReport({
+        cwd: args.path ?? process.cwd(),
+        full: args.full,
+        previewChars: args.maxChars,
+      })}\n`,
+    );
     return;
   }
 

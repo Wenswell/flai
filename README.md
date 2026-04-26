@@ -24,7 +24,7 @@ flai user [path] [-f]
 flai update-user [path] [-f]
 flai self-update [path] [-f]
 flai uninstall-user [path] -f
-flai context [path] [--max <chars>]
+flai context [path] [--max <chars>] [--full]
 flai help
 ```
 
@@ -38,6 +38,8 @@ flai init .
 `flai init` creates project `.flai` docs plus Codex and Claude Code hook adapters. Runtime code stays in the installed npm package.
 
 `flai update-user` updates user defaults from the installed package templates. It only overwrites files still matching the previous managed template. Locally edited files are reported as conflicts unless `-f` is used.
+
+`flai context` prints each context file with token counts and a preview. Use `--full` to print all context file content. Use `--max <chars>` to change preview length.
 
 Update the installed package first, then update user defaults:
 

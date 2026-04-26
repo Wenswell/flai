@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildContext } from "../src/context.mjs";
+import { buildContext, buildContextReport } from "../src/context.mjs";
 
 async function makeProject() {
   const root = await mkdtemp(path.join(tmpdir(), "ai-context-"));
@@ -85,4 +85,33 @@ test("buildContext keeps output under the configured size limit", async () => {
 
   assert.ok(context.length <= 700);
   assert.match(context, /Context trimmed/);
+});
+
+test("buildContextReport shows token counts and switches between preview and full content", async () => {
+  const { root, userFlai } = await makeProject();
+  const longText = `# Now\n\n${"visible ".repeat(80)}TAIL`;
+  await writeFile(path.join(root, ".flai", "now.md"), longText, "utf8");
+
+  const preview = await buildContextReport({
+    cwd: root,
+    userFlaiDir: userFlai,
+    previewChars: 80,
+  });
+
+  assert.match(preview, /mode: preview/);
+  assert.match(preview, /tokens: \d+/);
+  assert.match(preview, /preview:/);
+  assert.match(preview, /preview:\n  # Now visible visible/);
+  assert.match(preview, /\[preview trimmed\]/);
+  assert.doesNotMatch(preview, /TAIL/);
+
+  const full = await buildContextReport({
+    cwd: root,
+    userFlaiDir: userFlai,
+    full: true,
+  });
+
+  assert.match(full, /mode: full/);
+  assert.match(full, /content:/);
+  assert.match(full, /TAIL/);
 });
