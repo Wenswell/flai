@@ -183,22 +183,19 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
         mode,
         budget: args.budget,
       });
-      writeTable(stdout, stderr, [
-        {
-          mode: analysis.mode,
-          budget: analysis.budget,
-          used: analysis.text.length,
-        },
-      ]);
       writeTable(
         stdout,
         stderr,
-        analysis.rows.map(({ source, type, chars, tokens, state, preview }) => ({
+        analysis.rows.map(({ source, type, chars, tokens, state, reason, preview }, index) => ({
+          mode: index === 0 ? analysis.mode : "",
+          budget: index === 0 ? analysis.budget : "",
+          used: index === 0 ? analysis.text.length : "",
           source,
           type,
           chars,
           tokens,
           state,
+          reason,
           preview,
         })),
       );

@@ -5,6 +5,47 @@ function renderSection(section, text) {
   return `<${section.tag} source="${section.source}">\n${text}\n</${section.tag}>`;
 }
 
+function reasonFor(section) {
+  const reasons = {
+    "workflow-state": "readiness and next command",
+    "phase-policy": "active phase rules",
+    "project-now": "current project state",
+    conversation: "startup/brainstorm discussion state",
+    issues: "project issues",
+    "project-summary": "stable project facts",
+    "docs-index": "available .flai docs",
+  };
+
+  if (reasons[section.tag]) {
+    return reasons[section.tag];
+  }
+  if (section.tag === "user-preferences.md") {
+    return "user preferences";
+  }
+  if (section.tag === "user-failure-patterns.md") {
+    return "debug failure patterns";
+  }
+  if (section.tag === "task-status.md") {
+    return "current task state";
+  }
+  if (section.tag === "task-plan.md") {
+    return "current task plan";
+  }
+  if (section.tag === "task-implement.md") {
+    return "implementation context";
+  }
+  if (section.tag === "task-review.md") {
+    return "review context";
+  }
+  if (section.tag === "task-log.md") {
+    return "debug evidence";
+  }
+  if (section.tag === "task-decisions.md") {
+    return "task decisions";
+  }
+  return "selected context";
+}
+
 export function analyzeSections(sections, options = {}) {
   const mode = normalizeMode(options.mode);
   const budget = normalizeBudget(options, mode);
@@ -41,6 +82,7 @@ export function analyzeSections(sections, options = {}) {
       chars: section.text.length,
       tokens: estimateTokens(section.text),
       state,
+      reason: reasonFor(section),
       preview: previewText(section.text),
       renderedChars: renderedText.length,
     })),

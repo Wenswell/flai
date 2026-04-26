@@ -263,6 +263,8 @@ test("runCli context prints rendered context by default and sources table when r
     assert.match(sourcesStdout.output, /5600/);
     assert.match(sourcesStdout.output, /used/);
     assert.match(sourcesStdout.output, /source/);
+    assert.match(sourcesStdout.output, /reason/);
+    assert.match(sourcesStdout.output, /current project state/);
     assert.match(sourcesStdout.output, /preview/);
     assert.match(sourcesStdout.output, /\.flai\/now\.md/);
   } finally {

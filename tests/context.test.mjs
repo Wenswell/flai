@@ -152,6 +152,7 @@ test("buildContextAnalysis shows source rows with token counts and previews", as
   assert.ok(nowRow);
   assert.equal(nowRow.type, "file");
   assert.equal(typeof nowRow.tokens, "number");
+  assert.equal(nowRow.reason, "current project state");
   assert.match(nowRow.preview, /# Now visible/);
   assert.doesNotMatch(nowRow.preview, /TAIL/);
 });
