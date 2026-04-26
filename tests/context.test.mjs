@@ -13,6 +13,7 @@ async function makeProject() {
   const taskDir = path.join(flai, "tasks", "2026-04-25-context-hook");
 
   await mkdir(taskDir, { recursive: true });
+  await mkdir(path.join(flai, "policy"), { recursive: true });
   await mkdir(userFlai, { recursive: true });
 
   await writeFile(
@@ -56,6 +57,11 @@ async function makeProject() {
     "utf8",
   );
   await writeFile(
+    path.join(flai, "policy", "startup.md"),
+    "# Startup Phase\n\n- Read workflow state first.\n",
+    "utf8",
+  );
+  await writeFile(
     path.join(taskDir, "status.md"),
     "# Status\n\nState: active\n\nNext: finish shared script.\n",
     "utf8",
@@ -84,8 +90,11 @@ test("buildContext injects user defaults, project now, active task status, and p
   assert.match(context, /<task-status\.md/);
   assert.match(context, /State: active/);
   assert.match(context, /<mode-rule/);
-  assert.match(context, /<phase-gate/);
+  assert.match(context, /<workflow-state/);
   assert.match(context, /Current phase: startup/);
+  assert.ok(context.indexOf("<workflow-state") < context.indexOf("<project-now"));
+  assert.match(context, /<phase-policy/);
+  assert.match(context, /Read workflow state first/);
   assert.doesNotMatch(context, /SECRET LOG SHOULD NOT LOAD/);
 });
 

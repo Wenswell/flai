@@ -273,10 +273,12 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
     if (args.phaseAction === "check") {
       const result = await checkPhase({ repoDir: process.cwd() });
       if (result.ok) {
-        stdout.write(`Phase check passed: ${result.phase}\n`);
+        stdout.write(`Workflow status: ${result.status}\nCurrent phase: ${result.phase}\nNext command: ${result.nextCommand}\n`);
         return;
       }
-      stdout.write(`Phase check failed: ${result.phase}\n${result.issues.map((issue) => `- ${issue}`).join("\n")}\n`);
+      stdout.write(
+        `Workflow status: ${result.status}\nCurrent phase: ${result.phase}\nNext command: ${result.nextCommand}\n${result.issues.map((issue) => `- ${issue}`).join("\n")}\n`,
+      );
       process.exitCode = 1;
       return;
     }

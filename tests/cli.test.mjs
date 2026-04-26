@@ -360,7 +360,8 @@ test("runCli phase supports current, set, and check", async () => {
       stdout: checkStdout.stream,
       stderr: createWritable().stream,
     });
-    assert.match(checkStdout.output, /Phase check failed: review/);
+    assert.match(checkStdout.output, /Workflow status: NO_TASK/);
+    assert.match(checkStdout.output, /Next command: flai task create "title"/);
     process.exitCode = 0;
   } finally {
     process.chdir(previousCwd);

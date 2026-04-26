@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { MODES, normalizeMode } from "../context/config.mjs";
+import { normalizeMode } from "../context/config.mjs";
 import { getCurrentTask } from "./task.mjs";
 import { normalize, readText } from "../lib/common.mjs";
 
@@ -32,57 +32,77 @@ function isEmptyTaskDoc(text) {
 async function currentTaskDir(repoDir) {
   const current = await getCurrentTask({ repoDir });
   if (!current) {
-    return "";
+    return { current: "", taskDir: "", statusPath: "" };
   }
   const statusPath = path.isAbsolute(current) ? current : path.resolve(repoDir, current);
-  return path.dirname(statusPath);
+  if (!existsSync(statusPath)) {
+    return { current, taskDir: "", statusPath };
+  }
+  return { current, taskDir: path.dirname(statusPath), statusPath };
+}
+
+function nextCommandFor(status, phase) {
+  if (status === "STALE_POINTER") return "flai task finish";
+  if (status === "NO_TASK") return "flai task create \"title\"";
+  if (status === "NOT_READY") return `flai context ${phase} --sources`;
+  return `flai context ${phase}`;
 }
 
 export async function checkPhase(options = {}) {
   const repoDir = normalize(options.repoDir ?? process.cwd());
   const phase = normalizeMode(options.phase ?? (await getCurrentPhase({ repoDir })));
   const issues = [];
-  const taskDir = await currentTaskDir(repoDir);
+  const task = await currentTaskDir(repoDir);
+  let status = "READY";
 
-  if (!MODES.has(phase)) {
-    issues.push(`Unknown phase: ${phase}`);
+  if (task.current && !task.taskDir) {
+    status = "STALE_POINTER";
+    issues.push(`Current task points to a missing file: ${task.current}`);
   }
 
-  if (["implement", "review", "debug", "task"].includes(phase) && !taskDir) {
+  if (["implement", "review", "debug", "task"].includes(phase) && !task.current) {
+    status = "NO_TASK";
     issues.push(`${phase} phase needs a current task.`);
   }
 
-  if (taskDir) {
-    const statusText = await readText(path.join(taskDir, "status.md"));
+  if (task.taskDir) {
+    const statusText = await readText(path.join(task.taskDir, "status.md"));
     if (!statusText.trim()) {
       issues.push("Current task is missing status.md content.");
     }
 
     if (phase === "implement") {
-      const implementText = await readText(path.join(taskDir, "implement.md"));
+      const implementText = await readText(path.join(task.taskDir, "implement.md"));
       if (isEmptyTaskDoc(implementText)) {
         issues.push("implement phase should have implement.md context.");
       }
     }
 
     if (phase === "review") {
-      const reviewText = await readText(path.join(taskDir, "review.md"));
+      const reviewText = await readText(path.join(task.taskDir, "review.md"));
       if (isEmptyTaskDoc(reviewText)) {
         issues.push("review phase should have review.md checks.");
       }
     }
 
     if (phase === "debug") {
-      const logExists = existsSync(path.join(taskDir, "log.md"));
+      const logExists = existsSync(path.join(task.taskDir, "log.md"));
       if (!logExists) {
         issues.push("debug phase should have log.md or recorded failure facts.");
       }
     }
   }
 
+  if (issues.length && status === "READY") {
+    status = "NOT_READY";
+  }
+
   return {
     ok: issues.length === 0,
     phase,
+    status,
+    currentTask: task.current,
+    nextCommand: nextCommandFor(status, phase),
     issues,
   };
 }

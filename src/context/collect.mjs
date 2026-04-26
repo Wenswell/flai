@@ -96,6 +96,34 @@ async function addTaskDoc(sections, cwd, taskRef, name, options = {}) {
   }
 }
 
+async function addPhasePolicy(sections, projectFlaiDir, mode) {
+  const text = await readText(path.join(projectFlaiDir, "policy", `${mode}.md`));
+  if (text.trim()) {
+    sections.push(
+      contextSection(normalizePath(path.join(".flai", "policy", `${mode}.md`)), text, {
+        tag: "phase-policy",
+        maxChars: 800,
+      }),
+    );
+  }
+}
+
+function workflowStateSection(phaseCheck) {
+  return contextSection(
+    "workflow-state",
+    [
+      `Status: ${phaseCheck.status}.`,
+      `Current phase: ${phaseCheck.phase}.`,
+      `Current task: ${phaseCheck.currentTask || "none"}.`,
+      phaseCheck.issues.length ? "Issues:" : "Issues: none.",
+      ...phaseCheck.issues.map((issue) => `- ${issue}`),
+      `Next command: ${phaseCheck.nextCommand}.`,
+      "Rule: do not continue normal/deep work while status is NOT_READY or STALE_POINTER unless the user explicitly overrides it.",
+    ].join("\n"),
+    { type: "generated", tag: "workflow-state", maxChars: 900 },
+  );
+}
+
 export async function collectContextSections(options = {}) {
   const mode = normalizeMode(options.mode);
   const cwd = path.resolve(options.cwd ?? process.cwd());
@@ -106,9 +134,11 @@ export async function collectContextSections(options = {}) {
   const nowText = await readText(path.join(projectFlaiDir, "now.md"));
   const taskRef = await readCurrentTaskRef(projectFlaiDir, nowText);
   const phase = await getCurrentPhase({ repoDir: cwd });
-  const sections = [];
+  const phaseCheck = await checkPhase({ repoDir: cwd, phase });
+  const sections = [workflowStateSection(phaseCheck)];
 
   if (mode === "startup") {
+    await addPhasePolicy(sections, projectFlaiDir, mode);
     if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 620 }));
     await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 600 });
     await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 520 });
@@ -116,6 +146,7 @@ export async function collectContextSections(options = {}) {
     await addUserDocs(sections, userFlaiDir, USER_DOCS, 420);
     await addProjectDoc(sections, projectFlaiDir, "workflow.md", { tag: "workflow", maxChars: 620 });
   } else if (mode === "brainstorm") {
+    await addPhasePolicy(sections, projectFlaiDir, mode);
     if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 700 }));
     await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 1200 });
     await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: 900 });
@@ -125,6 +156,7 @@ export async function collectContextSections(options = {}) {
     await addProjectDoc(sections, projectFlaiDir, "project.md", { tag: "project-summary", maxChars: 900 });
     await addUserDocs(sections, userFlaiDir, ["preferences.md", "workflow.md"], 450);
   } else if (mode === "implement") {
+    await addPhasePolicy(sections, projectFlaiDir, mode);
     if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 650 }));
     await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 900 });
     await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
@@ -135,6 +167,7 @@ export async function collectContextSections(options = {}) {
     await addProjectDoc(sections, projectFlaiDir, "workflow.md", { tag: "workflow", maxChars: 900 });
     await addUserDocs(sections, userFlaiDir, USER_DOCS, 420);
   } else if (mode === "review") {
+    await addPhasePolicy(sections, projectFlaiDir, mode);
     if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 600 }));
     await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 800 });
     await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
@@ -144,6 +177,7 @@ export async function collectContextSections(options = {}) {
     await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: 700 });
     await addUserDocs(sections, userFlaiDir, ["preferences.md", "workflow.md"], 420);
   } else if (mode === "debug") {
+    await addPhasePolicy(sections, projectFlaiDir, mode);
     if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 650 }));
     await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 800 });
     await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 900 });
@@ -153,6 +187,7 @@ export async function collectContextSections(options = {}) {
     await addProjectDoc(sections, projectFlaiDir, "issues.md", { tag: "issues", maxChars: 700 });
     await addUserDocs(sections, userFlaiDir, ["failure-patterns.md", "preferences.md", "workflow.md"], 420);
   } else if (mode === "task") {
+    await addPhasePolicy(sections, projectFlaiDir, mode);
     if (nowText.trim()) sections.push(contextSection(".flai/now.md", nowText, { tag: "project-now", maxChars: 700 }));
     await addProjectDoc(sections, projectFlaiDir, "conversation.md", { tag: "conversation", maxChars: 1000 });
     await addTaskDoc(sections, cwd, taskRef, "status.md", { maxChars: 1100 });
@@ -166,21 +201,6 @@ export async function collectContextSections(options = {}) {
       tag: "docs-index",
       maxChars: mode === "startup" ? 500 : 800,
     }),
-  );
-
-  const phaseCheck = await checkPhase({ repoDir: cwd, phase });
-  sections.push(
-    contextSection(
-      "phase-gate",
-      [
-        `Current phase: ${phaseCheck.phase}.`,
-        `Status: ${phaseCheck.ok ? "ready" : "needs attention"}.`,
-        phaseCheck.issues.length ? "Issues:" : "Issues: none.",
-        ...phaseCheck.issues.map((issue) => `- ${issue}`),
-        "Next: use the current phase context unless the user explicitly changes direction.",
-      ].join("\n"),
-      { type: "generated", tag: "phase-gate", maxChars: 720 },
-    ),
   );
 
   sections.push(

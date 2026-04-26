@@ -5,6 +5,9 @@ Default mode: tiny. Escalate only when risk or uncertainty justifies it.
 ## Start
 
 - Confirm the task goal in one sentence.
+- Read `<workflow-state>` first.
+- If workflow status is `STALE_POINTER`, run the next command before other work.
+- If workflow status is `NOT_READY`, handle or explicitly acknowledge the missing context before implementation.
 - Before file edits, state the edit scope.
 - Use injected source map first, then read source files on demand.
 - Trust current files over memory.
@@ -71,3 +74,14 @@ Keep `status.md` short. Use this structure:
 - `Key files`
 
 Put process history in `log.md`.
+
+## Workflow State
+
+The context hook injects `<workflow-state>` on every session.
+
+- `READY`: current phase has enough context to continue.
+- `NOT_READY`: required context is missing.
+- `NO_TASK`: the current phase needs a task, but no task is active.
+- `STALE_POINTER`: `.flai/.current-task` points to a missing file.
+
+Follow the `Next command` unless the user explicitly changes direction.
