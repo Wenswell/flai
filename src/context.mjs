@@ -1,5 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 import path from "node:path";
@@ -19,6 +19,18 @@ const MODES = new Set(Object.keys(MODE_BUDGETS));
 
 function normalizePath(value) {
   return value.replace(/\\/g, "/");
+}
+
+function isMainModule(metaUrl) {
+  if (!process.argv[1]) {
+    return false;
+  }
+
+  try {
+    return realpathSync.native(fileURLToPath(metaUrl)) === realpathSync.native(path.resolve(process.argv[1]));
+  } catch {
+    return fileURLToPath(metaUrl) === path.resolve(process.argv[1]);
+  }
 }
 
 async function readText(filePath, fallback = "") {
@@ -412,7 +424,7 @@ export async function runCli({ argv = process.argv, stdin = process.stdin, stdou
   stdout.write(`${context}\n`);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+if (isMainModule(import.meta.url)) {
   runCli().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);

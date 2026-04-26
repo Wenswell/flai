@@ -1,12 +1,16 @@
-import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
+import { promisify } from "node:util";
 
 import { initProject, initUser, runCli, selfUpdate, uninstallUser, updateUser } from "../src/cli.mjs";
+
+const execFileAsync = promisify(execFile);
 
 async function tempRoot(name) {
   return mkdtemp(path.join(tmpdir(), `ai-admin-${name}-`));
@@ -313,4 +317,19 @@ test("runCli task supports create, list, current, start, and finish", async () =
   } finally {
     process.chdir(previousCwd);
   }
+});
+
+test("cli entrypoint runs when invoked through a symlinked path", async () => {
+  const root = await tempRoot("cli-symlink");
+  const linkDir = path.join(root, "link");
+  const target = path.resolve("src");
+
+  await symlink(target, linkDir, "junction");
+
+  const { stdout } = await execFileAsync(process.execPath, [path.join(linkDir, "cli.mjs"), "help"], {
+    cwd: path.resolve("."),
+    windowsHide: true,
+  });
+
+  assert.match(stdout, /pnpm flai context \[mode\]/);
 });

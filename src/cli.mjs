@@ -3,7 +3,7 @@
 import { execFile } from "node:child_process";
 import { Console } from "node:console";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
@@ -23,6 +23,18 @@ const execFileAsync = promisify(execFile);
 
 function normalize(value) {
   return path.resolve(value);
+}
+
+function isMainModule(metaUrl) {
+  if (!process.argv[1]) {
+    return false;
+  }
+
+  try {
+    return realpathSync.native(fileURLToPath(metaUrl)) === realpathSync.native(path.resolve(process.argv[1]));
+  } catch {
+    return fileURLToPath(metaUrl) === path.resolve(process.argv[1]);
+  }
 }
 
 function normalizePath(value) {
@@ -669,7 +681,7 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
   process.exitCode = 1;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+if (isMainModule(import.meta.url)) {
   runCli().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
