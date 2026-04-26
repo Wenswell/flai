@@ -22,11 +22,6 @@ async function makeProject() {
     "utf8",
   );
   await writeFile(
-    path.join(userFlai, "workflow.md"),
-    "# Workflow\n\nDefault to tiny. Escalate only on clear risk.\n",
-    "utf8",
-  );
-  await writeFile(
     path.join(userFlai, "failure-patterns.md"),
     "# Failure Patterns\n\n## Small Task Over-Processed\nCorrection: stay tiny unless risk matches.\n",
     "utf8",
@@ -83,6 +78,7 @@ test("buildContext injects user defaults, project now, active task status, and p
   assert.match(context, /<flai-context mode="startup"/);
   assert.match(context, /<user-preferences\.md/);
   assert.match(context, /Use Chinese/);
+  assert.doesNotMatch(context, /user-workflow\.md/);
   assert.match(context, /<project-now/);
   assert.match(context, /Current task:/);
   assert.match(context, /<conversation/);

@@ -46,6 +46,8 @@ flai init .
 
 `flai phase` records the current workflow phase in `.flai/.phase`. When `flai context` is run without an explicit mode, it uses the current phase. `flai task start` sets the phase to `implement`; `flai task finish` resets it to `startup`.
 
+Phase-specific defaults live in `.flai/policy/<phase>.md`; `workflow.md` is no longer generated.
+
 Every rendered context includes `<workflow-state>`.
 
 | status | meaning | next step |
@@ -55,7 +57,7 @@ Every rendered context includes `<workflow-state>`.
 | `NO_TASK` | The current phase needs a task. | Run `flai task create "title"` or start an existing task. |
 | `STALE_POINTER` | `.flai/.current-task` points to a missing file. | Run `flai task finish`. |
 
-`flai update-user` updates user defaults from the installed package templates. It only overwrites files still matching the previous managed template. Locally edited files are reported as conflicts unless `-f` is used.
+`flai update-user` updates user defaults from the installed package templates. It overwrites or removes only files still matching a previous managed template. Locally edited files are reported as conflicts unless `-f` is used.
 
 Update the installed package first, then update user defaults:
 

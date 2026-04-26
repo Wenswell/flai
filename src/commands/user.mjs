@@ -58,13 +58,15 @@ export async function initUser(options = {}) {
 
 export async function updateUser(options = {}) {
   const userFlaiDir = normalize(options.userFlaiDir ?? path.join(os.homedir(), ".flai"));
-  const result = { created: [], updated: [], skipped: [], conflicts: [], userFlaiDir };
+  const result = { created: [], updated: [], skipped: [], removed: [], conflicts: [], userFlaiDir };
   const previous = await readJson(path.join(userFlaiDir, USER_MANIFEST), { files: {} });
   const manifestFiles = {};
+  const templates = await readUserTemplates(options);
+  const templateNames = new Set(templates.map((template) => template.name));
 
   await mkdir(userFlaiDir, { recursive: true });
 
-  for (const template of await readUserTemplates(options)) {
+  for (const template of templates) {
     const target = path.join(userFlaiDir, template.name);
     const previousHash = previous.files?.[template.name]?.sha256;
 
@@ -92,6 +94,26 @@ export async function updateUser(options = {}) {
     if (currentHash === template.sha256) {
       result.skipped.push(target);
       manifestFiles[template.name] = { sha256: template.sha256 };
+      continue;
+    }
+
+    result.conflicts.push(target);
+  }
+
+  for (const [name, metadata] of Object.entries(previous.files ?? {})) {
+    if (templateNames.has(name)) {
+      continue;
+    }
+
+    const target = path.join(userFlaiDir, name);
+    if (!existsSync(target)) {
+      continue;
+    }
+
+    const current = await readFile(target, "utf8");
+    if (options.force || (metadata.sha256 && sha256(current) === metadata.sha256)) {
+      await rm(target, { force: true });
+      result.removed.push(target);
       continue;
     }
 

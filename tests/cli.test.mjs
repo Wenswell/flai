@@ -29,10 +29,10 @@ test("initUser creates only user-level defaults without overwriting", async () =
 
   const result = await initUser({ userFlaiDir });
 
-  assert.equal(result.created.includes(path.join(userFlaiDir, "workflow.md")), true);
   assert.equal(result.skipped.includes(path.join(userFlaiDir, "preferences.md")), true);
   assert.equal(await readFile(path.join(userFlaiDir, "preferences.md"), "utf8"), "# Custom\n\nKeep this.\n");
   assert.equal(existsSync(path.join(userFlaiDir, "failure-patterns.md")), true);
+  assert.equal(existsSync(path.join(userFlaiDir, "workflow.md")), false);
   assert.equal(existsSync(path.join(userFlaiDir, "context-policy.md")), false);
   assert.equal(existsSync(path.join(userFlaiDir, "memories.md")), false);
   assert.equal(existsSync(path.join(userFlaiDir, ".manifest.json")), true);
@@ -42,23 +42,32 @@ test("updateUser updates managed files and preserves local edits by default", as
   const root = await tempRoot("user-update");
   const userFlaiDir = path.join(root, ".flai");
   const oldPreferences = "# Preferences\n\n- Old template.\n";
-  const localWorkflow = "# Workflow\n\nLocal edit.\n";
+  const oldWorkflow = "# Workflow\n\nOld managed template.\n";
+  const localFailurePatterns = "# Failure Patterns\n\nLocal edit.\n";
 
   await mkdir(userFlaiDir, { recursive: true });
   await writeFile(path.join(userFlaiDir, "preferences.md"), oldPreferences, "utf8");
-  await writeFile(path.join(userFlaiDir, "workflow.md"), localWorkflow, "utf8");
+  await writeFile(path.join(userFlaiDir, "workflow.md"), oldWorkflow, "utf8");
+  await writeFile(path.join(userFlaiDir, "failure-patterns.md"), localFailurePatterns, "utf8");
   await writeFile(
     path.join(userFlaiDir, ".manifest.json"),
-    `${JSON.stringify({ files: { "preferences.md": { sha256: sha256(oldPreferences) } } })}\n`,
+    `${JSON.stringify({
+      files: {
+        "preferences.md": { sha256: sha256(oldPreferences) },
+        "workflow.md": { sha256: sha256(oldWorkflow) },
+      },
+    })}\n`,
     "utf8",
   );
 
   const result = await updateUser({ userFlaiDir });
 
   assert.equal(result.updated.includes(path.join(userFlaiDir, "preferences.md")), true);
-  assert.equal(result.conflicts.includes(path.join(userFlaiDir, "workflow.md")), true);
+  assert.equal(result.removed.includes(path.join(userFlaiDir, "workflow.md")), true);
+  assert.equal(result.conflicts.includes(path.join(userFlaiDir, "failure-patterns.md")), true);
   assert.match(await readFile(path.join(userFlaiDir, "preferences.md"), "utf8"), /默认技术栈/);
-  assert.equal(await readFile(path.join(userFlaiDir, "workflow.md"), "utf8"), localWorkflow);
+  assert.equal(existsSync(path.join(userFlaiDir, "workflow.md")), false);
+  assert.equal(await readFile(path.join(userFlaiDir, "failure-patterns.md"), "utf8"), localFailurePatterns);
 });
 
 test("selfUpdate installs the latest package and runs update-user through the flai binary", async () => {
@@ -110,7 +119,7 @@ test("initProject creates project docs, hooks, and fallback instructions", async
   assert.equal(existsSync(path.join(repoDir, ".flai", "context-policy.md")), true);
   assert.equal(existsSync(path.join(repoDir, ".flai", "conversation.md")), true);
   assert.equal(existsSync(path.join(repoDir, ".flai", "issues.md")), true);
-  assert.equal(existsSync(path.join(repoDir, ".flai", "workflow.md")), true);
+  assert.equal(existsSync(path.join(repoDir, ".flai", "workflow.md")), false);
   assert.equal(existsSync(path.join(repoDir, ".flai", "failure-patterns.md")), false);
   assert.equal(existsSync(path.join(repoDir, ".codex", "hooks.json")), true);
   assert.equal(existsSync(path.join(repoDir, ".codex", "hooks", "session-start.mjs")), true);

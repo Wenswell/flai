@@ -7,7 +7,7 @@ export const MODE_BUDGETS = {
   task: 4200,
 };
 
-export const USER_DOCS = ["preferences.md", "workflow.md", "failure-patterns.md"];
+export const USER_DOCS = ["preferences.md", "failure-patterns.md"];
 export const MODES = new Set(Object.keys(MODE_BUDGETS));
 
 export function normalizeMode(value) {
