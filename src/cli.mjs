@@ -594,7 +594,13 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
         mode: args.mode,
         budget: args.budget,
       });
-      stdout.write(`mode: ${analysis.mode}\nbudget: ${analysis.budget}\nused: ${analysis.text.length}\n`);
+      writeTable(stdout, stderr, [
+        {
+          mode: analysis.mode,
+          budget: analysis.budget,
+          used: analysis.text.length,
+        },
+      ]);
       writeTable(
         stdout,
         stderr,

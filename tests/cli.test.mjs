@@ -244,8 +244,11 @@ test("runCli context prints rendered context by default and sources table when r
       stderr: createWritable().stream,
     });
 
-    assert.match(sourcesStdout.output, /mode: startup/);
-    assert.match(sourcesStdout.output, /budget: 5600/);
+    assert.match(sourcesStdout.output, /mode/);
+    assert.match(sourcesStdout.output, /startup/);
+    assert.match(sourcesStdout.output, /budget/);
+    assert.match(sourcesStdout.output, /5600/);
+    assert.match(sourcesStdout.output, /used/);
     assert.match(sourcesStdout.output, /source/);
     assert.match(sourcesStdout.output, /preview/);
     assert.match(sourcesStdout.output, /\.flai\/now\.md/);
