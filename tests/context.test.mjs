@@ -95,6 +95,8 @@ test("buildContext injects user defaults, project now, active task status, and p
   assert.doesNotMatch(context, /<mode-rule/);
   assert.match(context, /Active phase: startup/);
   assert.match(context, /Sync target: \.flai\/conversation\.md/);
+  assert.match(context, /wait for explicit user confirmation/);
+  assert.match(context, /read-only context inspection is allowed/);
   assert.ok(context.indexOf("<workflow-state") < context.indexOf("<project-now"));
   assert.match(context, /<phase-policy/);
   assert.match(context, /Read workflow state first/);

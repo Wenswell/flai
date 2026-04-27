@@ -125,6 +125,8 @@ function workflowStateSection(phaseCheck) {
   }
 
   lines.push("Rule: resolve non-READY status before continuing unless the user overrides it.");
+  lines.push("Rule: before executing any task, command, file edit, or commit, state the action scope and wait for explicit user confirmation.");
+  lines.push("Rule: read-only context inspection is allowed before confirmation.");
 
   return contextSection(
     "workflow-state",
