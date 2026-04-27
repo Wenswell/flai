@@ -1,10 +1,11 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { Readable } from "node:stream";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildContext, buildContextAnalysis } from "../src/context.mjs";
+import { buildContext, buildContextAnalysis, runCli as runContextHook } from "../src/context.mjs";
 
 async function makeProject() {
   const root = await mkdtemp(path.join(tmpdir(), "ai-context-"));
@@ -62,10 +63,16 @@ async function makeProject() {
     "utf8",
   );
   await writeFile(
+    path.join(flai, "policy", "implement.md"),
+    "# Implement Phase\n\n- Follow task implementation context.\n",
+    "utf8",
+  );
+  await writeFile(
     path.join(taskDir, "status.md"),
     "# Status\n\nState: active\n\nNext: finish shared script.\n",
     "utf8",
   );
+  await writeFile(path.join(taskDir, "implement.md"), "# Implement\n\nUse the hook context.\n", "utf8");
   await writeFile(path.join(taskDir, "log.md"), "SECRET LOG SHOULD NOT LOAD\n", "utf8");
 
   return { root, userFlai };
@@ -101,6 +108,74 @@ test("buildContext injects user defaults, project now, active task status, and p
   assert.match(context, /<phase-policy/);
   assert.match(context, /Read workflow state first/);
   assert.doesNotMatch(context, /SECRET LOG SHOULD NOT LOAD/);
+});
+
+function captureWritable() {
+  let output = "";
+  return {
+    stream: {
+      write(value) {
+        output += value;
+      },
+    },
+    get output() {
+      return output;
+    },
+  };
+}
+
+test("context hook injects workflow gate on session start", async () => {
+  const { root } = await makeProject();
+  const stdout = captureWritable();
+
+  await runContextHook({
+    argv: ["node", "hook", "--client", "claude"],
+    stdin: Readable.from([JSON.stringify({ cwd: root })]),
+    stdout: stdout.stream,
+  });
+
+  const result = JSON.parse(stdout.output);
+  const context = result.hookSpecificOutput.additionalContext;
+
+  assert.match(result.systemMessage, /startup, READY/);
+  assert.match(context, /<workflow-gate>/);
+  assert.match(context, /Active phase: startup/);
+  assert.match(context, /Phase policy: \.flai\/policy\/startup\.md/);
+  assert.match(context, /<phase-policy/);
+});
+
+test("claude pre-tool hook injects phase context into agent prompt", async () => {
+  const { root } = await makeProject();
+  const stdout = captureWritable();
+
+  await runContextHook({
+    argv: ["node", "hook", "--client", "claude", "--event", "pre-tool-use"],
+    stdin: Readable.from([
+      JSON.stringify({
+        cwd: root,
+        tool_name: "Task",
+        tool_input: {
+          subagent_type: "implement",
+          prompt: "Implement the change.",
+        },
+      }),
+    ]),
+    stdout: stdout.stream,
+  });
+
+  const result = JSON.parse(stdout.output);
+  const updated = result.hookSpecificOutput.updatedInput;
+
+  assert.equal(result.hookSpecificOutput.hookEventName, "PreToolUse");
+  assert.equal(result.hookSpecificOutput.permissionDecision, "allow");
+  assert.equal(updated.subagent_type, "implement");
+  assert.match(updated.prompt, /# Flai implement Context/);
+  assert.match(updated.prompt, /<workflow-gate>/);
+  assert.match(updated.prompt, /Active phase: implement/);
+  assert.match(updated.prompt, /<flai-context mode="implement"/);
+  assert.match(updated.prompt, /Follow task implementation context/);
+  assert.match(updated.prompt, /Implement the change\./);
+  assert.equal((await readFile(path.join(root, ".flai", ".phase"), "utf8")).trim(), "implement");
 });
 
 test("explicit context mode drives workflow-state even when saved phase differs", async () => {
