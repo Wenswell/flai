@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { promisify } from "node:util";
 
 import { initProject, initUser, runCli, selfUpdate, uninstallUser, updateUser } from "../src/cli.mjs";
+import { initProject as initProjectCommand, listProjectUpdateCandidates } from "../src/commands/init.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -146,7 +147,56 @@ test("initProject creates project docs, hooks, and fallback instructions", async
   assert.equal(result.created.length > 6, true);
 });
 
-test("initProject preserves existing files unless force is enabled", async () => {
+test("initProject update applies only selected install files", async () => {
+  const root = await tempRoot("project-update");
+  const repoDir = path.join(root, "repo");
+  const templatesV1 = path.join(root, "templates-v1");
+  const templatesV2 = path.join(root, "templates-v2");
+  const runtime = {
+    scriptDir: path.resolve("src"),
+    packageJson: { name: "@test/flai", version: "1.0.0" },
+  };
+
+  await mkdir(path.join(templatesV1, "project", ".flai"), { recursive: true });
+  await mkdir(path.join(templatesV1, "project", ".codex"), { recursive: true });
+  await mkdir(path.join(templatesV1, "skills"), { recursive: true });
+  await writeFile(path.join(templatesV1, "project", ".flai", "context-policy.md"), "# Policy\n\nv1\n", "utf8");
+  await writeFile(path.join(templatesV1, "project", ".flai", "project.md"), "# Project\n\nv1\n", "utf8");
+  await writeFile(path.join(templatesV1, "project", ".codex", "hooks.json"), "{\"version\":1}\n", "utf8");
+
+  await mkdir(path.join(templatesV2, "project", ".flai"), { recursive: true });
+  await mkdir(path.join(templatesV2, "project", ".codex"), { recursive: true });
+  await mkdir(path.join(templatesV2, "skills"), { recursive: true });
+  await writeFile(path.join(templatesV2, "project", ".flai", "context-policy.md"), "# Policy\n\nv2\n", "utf8");
+  await writeFile(path.join(templatesV2, "project", ".flai", "project.md"), "# Project\n\nv2\n", "utf8");
+  await writeFile(path.join(templatesV2, "project", ".flai", "new.md"), "# New\n", "utf8");
+  await writeFile(path.join(templatesV2, "project", ".codex", "hooks.json"), "{\"version\":2}\n", "utf8");
+  await writeFile(path.join(templatesV2, "skills", "new-skill.md"), "# Skill\n", "utf8");
+
+  await initProjectCommand({ repoDir, templatesDir: templatesV1, ...runtime });
+  await writeFile(path.join(repoDir, ".flai", "project.md"), "# Project\n\nlocal edit\n", "utf8");
+
+  const candidates = await listProjectUpdateCandidates({ repoDir, templatesDir: templatesV2, ...runtime });
+  const result = await initProjectCommand({
+    repoDir,
+    templatesDir: templatesV2,
+    update: true,
+    selectedUpdatePaths: [".codex/hooks.json", ".codex/skills/new-skill.md"],
+    ...runtime,
+  });
+
+  assert.equal(candidates.some((candidate) => candidate.relativePath === ".flai/project.md"), false);
+  assert.equal(await readFile(path.join(repoDir, ".flai", "context-policy.md"), "utf8"), "# Policy\n\nv1\n");
+  assert.equal(await readFile(path.join(repoDir, ".flai", "project.md"), "utf8"), "# Project\n\nlocal edit\n");
+  assert.equal(existsSync(path.join(repoDir, ".flai", "new.md")), false);
+  assert.equal(await readFile(path.join(repoDir, ".codex", "hooks.json"), "utf8"), "{\"version\":2}\n");
+  assert.equal(await readFile(path.join(repoDir, ".codex", "skills", "new-skill.md"), "utf8"), "# Skill\n");
+  assert.equal(existsSync(path.join(repoDir, ".claude", "skills", "new-skill.md")), false);
+  assert.equal(result.updated.includes(path.join(repoDir, ".codex", "hooks.json")), true);
+  assert.equal(result.created.includes(path.join(repoDir, ".codex", "skills", "new-skill.md")), true);
+});
+
+test("initProject preserves existing files", async () => {
   const repoDir = await tempRoot("preserve");
   const agentsPath = path.join(repoDir, "AGENTS.md");
 
@@ -155,10 +205,6 @@ test("initProject preserves existing files unless force is enabled", async () =>
   const first = await initProject({ repoDir });
   assert.equal(first.skipped.includes(agentsPath), true);
   assert.equal(await readFile(agentsPath, "utf8"), "# Existing\n");
-
-  const second = await initProject({ repoDir, force: true });
-  assert.equal(second.created.includes(agentsPath), true);
-  assert.match(await readFile(agentsPath, "utf8"), /\.flai\/context-policy\.md/);
 });
 
 function createWritable() {
@@ -189,6 +235,50 @@ test("runCli supports concise pnpm-style project init command", async () => {
   assert.match(stdout.output, /Initialized project \.flai data/);
   assert.equal(stderr.output, "");
   assert.equal(existsSync(path.join(repoDir, ".flai", "project.md")), true);
+});
+
+test("runCli init -u interactively updates selected install files", async () => {
+  const repoDir = await tempRoot("cli-init-update");
+  await runCli({
+    argv: ["node", "flai", "init", repoDir],
+    stdout: createWritable().stream,
+    stderr: createWritable().stream,
+  });
+
+  const projectPath = path.join(repoDir, ".flai", "project.md");
+  const hookPath = path.join(repoDir, ".codex", "hooks.json");
+  await writeFile(projectPath, "# Project\n\nLocal edit.\n", "utf8");
+  await writeFile(hookPath, "{\"old\":true}\n", "utf8");
+
+  const stdout = createWritable();
+  await runCli({
+    argv: ["node", "flai", "init", repoDir, "-u"],
+    stdout: stdout.stream,
+    stderr: createWritable().stream,
+    async chooseProjectUpdates(candidates) {
+      assert.equal(candidates.some((candidate) => candidate.relativePath === ".flai/project.md"), false);
+      return [".codex/hooks.json"];
+    },
+  });
+
+  assert.match(stdout.output, /Updated project install files/);
+  assert.match(stdout.output, /updated/);
+  assert.equal(await readFile(projectPath, "utf8"), "# Project\n\nLocal edit.\n");
+  assert.match(await readFile(hookPath, "utf8"), /session-start\.mjs/);
+});
+
+test("runCli init rejects force overwrite", async () => {
+  const repoDir = await tempRoot("cli-init-force");
+  const stderr = createWritable();
+
+  await runCli({
+    argv: ["node", "flai", "init", repoDir, "-f"],
+    stdout: createWritable().stream,
+    stderr: stderr.stream,
+  });
+
+  assert.match(stderr.output, /not supported for init/);
+  process.exitCode = 0;
 });
 
 test("runCli supports concise user init, update, and uninstall commands", async () => {
@@ -233,7 +323,7 @@ test("runCli prints help for help command", async () => {
   });
 
   assert.match(stdout.output, /pnpm flai init/);
-  assert.match(stdout.output, /Initialize a project/);
+  assert.match(stdout.output, /Initialize project files/);
   assert.match(stdout.output, /pnpm flai context \[mode\]/);
   assert.match(stdout.output, /pnpm flai task list/);
   assert.match(stdout.output, /Initialize user-level defaults/);

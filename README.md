@@ -13,7 +13,7 @@ npm install -g @wenswell/flai
 ## Use
 
 ```bash
-flai init [path] [-f]
+flai init [path] [-u]
 flai context [mode] [--budget <chars>]
 flai context [mode] --sources
 flai task create "title"
@@ -38,7 +38,7 @@ flai user
 flai init .
 ```
 
-`flai init` creates project `.flai` docs plus Codex and Claude Code hook adapters. Runtime code stays in the installed npm package.
+`flai init` creates missing project `.flai` docs plus Codex and Claude Code hook adapters. Existing files are skipped. `flai init -u` opens an interactive `console.table` picker for updating install files such as hooks, settings, and skills. Runtime code stays in the installed npm package.
 
 `flai context` prints rendered context for the current project. Modes are `startup`, `brainstorm`, `implement`, `review`, and `debug`. Use `--budget` to change the character budget. Use `--sources` to print one compact `console.table` with budgeted source, type/mode, chars, tokens, fit, reason, and a 20-character preview.
 

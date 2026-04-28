@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 
+import { Console } from "node:console";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import process from "node:process";
+import readline from "node:readline";
 
 import { buildContext, buildContextAnalysis } from "./context.mjs";
-import { initProject as initProjectCommand } from "./commands/init.mjs";
+import {
+  initProject as initProjectCommand,
+  listProjectUpdateCandidates as listProjectUpdateCandidatesCommand,
+} from "./commands/init.mjs";
 import { printResult, writeTable } from "./commands/output.mjs";
 import { checkPhase, getCurrentPhase, setCurrentPhase } from "./commands/phase.mjs";
 import {
@@ -58,7 +63,116 @@ export async function initProject(options = {}) {
   return initProjectCommand(withRuntime(options));
 }
 
+export async function listProjectUpdateCandidates(options = {}) {
+  return listProjectUpdateCandidatesCommand(withRuntime(options));
+}
+
 export { createTask, finishTask, getCurrentTask, listTasks, startTask, uninstallUser };
+
+function renderUpdateTable(stdout, stderr, candidates, cursor, selected) {
+  stdout.write("\x1Bc");
+  stdout.write("Select project install files to update.\n");
+  stdout.write("Use Up/Down to move, Space to toggle, a to select all, n to clear, Enter to apply, q/Esc to cancel.\n\n");
+
+  const rows = {};
+  candidates.forEach((candidate, index) => {
+    const marker = index === cursor ? ">" : " ";
+    const checked = selected.has(candidate.relativePath) ? "[x]" : "[ ]";
+    rows[`${marker} ${checked} ${index + 1}`] = {
+      action: candidate.action,
+      file: candidate.relativePath,
+    };
+  });
+
+  new Console({ stdout, stderr }).table(rows);
+}
+
+export async function selectProjectUpdates(candidates, { stdin = process.stdin, stdout = process.stdout, stderr = process.stderr } = {}) {
+  const choices = candidates.filter((candidate) => candidate.action !== "same");
+  if (!choices.length) {
+    stdout.write("No project install files need update.\n");
+    return [];
+  }
+
+  if (!stdin.isTTY || typeof stdin.setRawMode !== "function") {
+    stdout.write("Interactive update requires a TTY.\n");
+    return [];
+  }
+
+  readline.emitKeypressEvents(stdin);
+  const selected = new Set();
+  let cursor = 0;
+  const previousRawMode = Boolean(stdin.isRaw);
+
+  stdin.setRawMode(true);
+  stdin.resume();
+  renderUpdateTable(stdout, stderr, choices, cursor, selected);
+
+  return await new Promise((resolve) => {
+    const finish = (value) => {
+      stdin.off("keypress", onKeypress);
+      stdin.setRawMode(previousRawMode);
+      resolve(value);
+    };
+
+    const onKeypress = (text, key = {}) => {
+      if (key.ctrl && key.name === "c") {
+        stdout.write("\nCanceled.\n");
+        finish(null);
+        return;
+      }
+
+      if (key.name === "escape" || key.name === "q") {
+        stdout.write("\nCanceled.\n");
+        finish(null);
+        return;
+      }
+
+      if (key.name === "up") {
+        cursor = Math.max(0, cursor - 1);
+        renderUpdateTable(stdout, stderr, choices, cursor, selected);
+        return;
+      }
+
+      if (key.name === "down") {
+        cursor = Math.min(choices.length - 1, cursor + 1);
+        renderUpdateTable(stdout, stderr, choices, cursor, selected);
+        return;
+      }
+
+      if (key.name === "space") {
+        const item = choices[cursor];
+        if (selected.has(item.relativePath)) {
+          selected.delete(item.relativePath);
+        } else {
+          selected.add(item.relativePath);
+        }
+        renderUpdateTable(stdout, stderr, choices, cursor, selected);
+        return;
+      }
+
+      if (text === "a") {
+        for (const choice of choices) {
+          selected.add(choice.relativePath);
+        }
+        renderUpdateTable(stdout, stderr, choices, cursor, selected);
+        return;
+      }
+
+      if (text === "n") {
+        selected.clear();
+        renderUpdateTable(stdout, stderr, choices, cursor, selected);
+        return;
+      }
+
+      if (key.name === "return" || key.name === "enter") {
+        finish([...selected]);
+      }
+    };
+
+    stdin.on("keypress", onKeypress);
+  });
+}
 
 function parseArgs(argv) {
   const command = argv[2];
@@ -73,6 +187,7 @@ function parseArgs(argv) {
     phaseAction: undefined,
     phaseValue: undefined,
     force: false,
+    update: false,
     confirm: false,
     help: false,
     budget: undefined,
@@ -93,6 +208,8 @@ function parseArgs(argv) {
     } else if (value === "-f" || value === "--force") {
       args.force = true;
       args.confirm = true;
+    } else if (value === "-u" || value === "--update") {
+      args.update = true;
     } else if (value === "-h" || value === "--help" || value === "help") {
       args.help = true;
     } else if (value.startsWith("-")) {
@@ -120,7 +237,7 @@ function parseArgs(argv) {
 
 function usage() {
   return `Usage:
-  pnpm flai init [path] [-f]              Initialize a project with .flai docs and hooks
+  pnpm flai init [path] [-u]              Initialize project files, or interactively update hooks and skills
   pnpm flai context [mode] [--budget N]   Print rendered context for startup, brainstorm, implement, review, or debug
   pnpm flai context [mode] --sources      Print compact source table for a context mode
   pnpm flai task create "title"           Create a lightweight task
@@ -139,8 +256,18 @@ function usage() {
 `;
 }
 
-export async function runCli({ argv = process.argv, stdout = process.stdout, stderr = process.stderr } = {}) {
+export async function runCli({
+  argv = process.argv,
+  stdin = process.stdin,
+  stdout = process.stdout,
+  stderr = process.stderr,
+  chooseProjectUpdates = selectProjectUpdates,
+} = {}) {
   const args = parseArgs(argv);
+
+  if (args.command === "init" && args.force) {
+    args.errors.push("Option -f/--force is not supported for init.");
+  }
 
   if (!args.command || args.help || args.command === "help") {
     stdout.write(usage());
@@ -175,6 +302,16 @@ export async function runCli({ argv = process.argv, stdout = process.stdout, std
 
   if (args.command === "init") {
     args.repoDir = args.repoDir ?? process.cwd();
+    if (args.update) {
+      const candidates = await listProjectUpdateCandidates(args);
+      const selectedUpdatePaths = await chooseProjectUpdates(candidates, { stdin, stdout, stderr });
+      if (selectedUpdatePaths === null) {
+        return;
+      }
+      printResult(stdout, "Updated project install files.", await initProject({ ...args, selectedUpdatePaths }));
+      return;
+    }
+
     printResult(stdout, "Initialized project .flai data.", await initProject(args));
     return;
   }
