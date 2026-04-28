@@ -203,7 +203,7 @@ test("initProject preserves existing files", async () => {
   await writeFile(agentsPath, "# Existing\n", "utf8");
 
   const first = await initProject({ repoDir });
-  assert.equal(first.skipped.includes(agentsPath), true);
+  assert.equal(first.existing.includes(agentsPath), true);
   assert.equal(await readFile(agentsPath, "utf8"), "# Existing\n");
 });
 
@@ -235,6 +235,77 @@ test("runCli supports concise pnpm-style project init command", async () => {
   assert.match(stdout.output, /Initialized project \.flai data/);
   assert.equal(stderr.output, "");
   assert.equal(existsSync(path.join(repoDir, ".flai", "project.md")), true);
+  assert.match(stdout.output, /created: \d+/);
+  assert.match(stdout.output, /install files:/);
+  assert.match(stdout.output, /ignored project docs/);
+  assert.doesNotMatch(stdout.output, /\.flai[/\\]project\.md/);
+});
+
+test("runCli supports verbose result file lists", async () => {
+  const repoDir = await tempRoot("cli-init-verbose");
+  const stdout = createWritable();
+
+  await runCli({
+    argv: ["node", "flai", "init", repoDir, "-v"],
+    stdout: stdout.stream,
+    stderr: createWritable().stream,
+  });
+
+  assert.match(stdout.output, /created:\n- /);
+  assert.match(stdout.output, /\.flai[/\\]project\.md/);
+});
+
+test("runCli init scans install file changes without updating", async () => {
+  const repoDir = await tempRoot("cli-init-scan");
+  await runCli({
+    argv: ["node", "flai", "init", repoDir],
+    stdout: createWritable().stream,
+    stderr: createWritable().stream,
+  });
+
+  const hookPath = path.join(repoDir, ".codex", "hooks.json");
+  await writeFile(hookPath, "{\"old\":true}\n", "utf8");
+
+  const stdout = createWritable();
+  await runCli({
+    argv: ["node", "flai", "init", repoDir],
+    stdout: stdout.stream,
+    stderr: createWritable().stream,
+  });
+
+  assert.match(stdout.output, /install files:/);
+  assert.match(stdout.output, /update/);
+  assert.match(stdout.output, /same/);
+  assert.equal(await readFile(hookPath, "utf8"), "{\"old\":true}\n");
+});
+
+test("runCli init can enter update picker after scan", async () => {
+  const repoDir = await tempRoot("cli-init-confirm-update");
+  await runCli({
+    argv: ["node", "flai", "init", repoDir],
+    stdout: createWritable().stream,
+    stderr: createWritable().stream,
+  });
+
+  const hookPath = path.join(repoDir, ".codex", "hooks.json");
+  await writeFile(hookPath, "{\"old\":true}\n", "utf8");
+
+  const stdout = createWritable();
+  await runCli({
+    argv: ["node", "flai", "init", repoDir],
+    stdout: stdout.stream,
+    stderr: createWritable().stream,
+    async confirmUpdate() {
+      return true;
+    },
+    async chooseProjectUpdates() {
+      return [".codex/hooks.json"];
+    },
+  });
+
+  assert.match(stdout.output, /Initialized project/);
+  assert.match(stdout.output, /Updated project install files/);
+  assert.match(await readFile(hookPath, "utf8"), /session-start\.mjs/);
 });
 
 test("runCli init -u interactively updates selected install files", async () => {
@@ -257,14 +328,37 @@ test("runCli init -u interactively updates selected install files", async () => 
     stderr: createWritable().stream,
     async chooseProjectUpdates(candidates) {
       assert.equal(candidates.some((candidate) => candidate.relativePath === ".flai/project.md"), false);
+      assert.equal(candidates.summary.ignored > 0, true);
+      assert.equal(candidates.summary.same > 0, true);
       return [".codex/hooks.json"];
     },
   });
 
   assert.match(stdout.output, /Updated project install files/);
-  assert.match(stdout.output, /updated/);
+  assert.match(stdout.output, /updated: 1/);
   assert.equal(await readFile(projectPath, "utf8"), "# Project\n\nLocal edit.\n");
   assert.match(await readFile(hookPath, "utf8"), /session-start\.mjs/);
+});
+
+test("runCli init -u reports no update when nothing is selected", async () => {
+  const repoDir = await tempRoot("cli-init-update-none");
+  await runCli({
+    argv: ["node", "flai", "init", repoDir],
+    stdout: createWritable().stream,
+    stderr: createWritable().stream,
+  });
+
+  const stdout = createWritable();
+  await runCli({
+    argv: ["node", "flai", "init", repoDir, "-u"],
+    stdout: stdout.stream,
+    stderr: createWritable().stream,
+    async chooseProjectUpdates() {
+      return [];
+    },
+  });
+
+  assert.match(stdout.output, /No project install files updated/);
 });
 
 test("runCli init rejects force overwrite", async () => {
@@ -330,6 +424,7 @@ test("runCli prints help for help command", async () => {
   assert.match(stdout.output, /Project state:/);
   assert.match(stdout.output, /Maintenance:/);
   assert.match(stdout.output, /Update flai and user templates/);
+  assert.match(stdout.output, /-v, --verbose/);
 });
 
 test("runCli context prints rendered context by default and sources table when requested", async () => {

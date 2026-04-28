@@ -9,10 +9,11 @@ import readline from "node:readline";
 
 import { buildContext, buildContextAnalysis } from "./context.mjs";
 import {
+  countIgnoredProjectTemplates as countIgnoredProjectTemplatesCommand,
   initProject as initProjectCommand,
   listProjectUpdateCandidates as listProjectUpdateCandidatesCommand,
 } from "./commands/init.mjs";
-import { printResult, writeTable } from "./commands/output.mjs";
+import { printResult, writeInstallSummary, writeTable } from "./commands/output.mjs";
 import { checkPhase, getCurrentPhase, setCurrentPhase } from "./commands/phase.mjs";
 import {
   createTask,
@@ -67,15 +68,21 @@ export async function listProjectUpdateCandidates(options = {}) {
   return listProjectUpdateCandidatesCommand(withRuntime(options));
 }
 
+export async function countIgnoredProjectTemplates(options = {}) {
+  return countIgnoredProjectTemplatesCommand(withRuntime(options));
+}
+
 export { createTask, finishTask, getCurrentTask, listTasks, startTask, uninstallUser };
 
-function renderUpdateTable(stdout, stderr, candidates, cursor, selected) {
+function renderUpdateTable(stdout, stderr, candidates, choices, cursor, selected) {
   stdout.write("\x1Bc");
+  writeUpdateSummary(stdout, stderr, candidates);
+  stdout.write("\n");
   stdout.write("Select project install files to update.\n");
   stdout.write("Use Up/Down to move, Space to toggle, a to select all, n to clear, Enter to apply, q/Esc to cancel.\n\n");
 
   const rows = {};
-  candidates.forEach((candidate, index) => {
+  choices.forEach((candidate, index) => {
     const marker = index === cursor ? ">" : " ";
     const checked = selected.has(candidate.relativePath) ? "[x]" : "[ ]";
     rows[`${marker} ${checked} ${index + 1}`] = {
@@ -87,14 +94,27 @@ function renderUpdateTable(stdout, stderr, candidates, cursor, selected) {
   new Console({ stdout, stderr }).table(rows);
 }
 
+function writeUpdateSummary(stdout, stderr, candidates) {
+  const summary = candidates.summary ?? {
+    create: candidates.filter((candidate) => candidate.action === "create").length,
+    update: candidates.filter((candidate) => candidate.action === "update").length,
+    same: candidates.filter((candidate) => candidate.action === "same").length,
+    ignored: 0,
+  };
+
+  writeInstallSummary(stdout, stderr, summary);
+}
+
 export async function selectProjectUpdates(candidates, { stdin = process.stdin, stdout = process.stdout, stderr = process.stderr } = {}) {
   const choices = candidates.filter((candidate) => candidate.action !== "same");
   if (!choices.length) {
+    writeUpdateSummary(stdout, stderr, candidates);
     stdout.write("No project install files need update.\n");
     return [];
   }
 
   if (!stdin.isTTY || typeof stdin.setRawMode !== "function") {
+    writeUpdateSummary(stdout, stderr, candidates);
     stdout.write("Interactive update requires a TTY.\n");
     return [];
   }
@@ -106,12 +126,14 @@ export async function selectProjectUpdates(candidates, { stdin = process.stdin, 
 
   stdin.setRawMode(true);
   stdin.resume();
-  renderUpdateTable(stdout, stderr, choices, cursor, selected);
+  renderUpdateTable(stdout, stderr, candidates, choices, cursor, selected);
 
   return await new Promise((resolve) => {
     const finish = (value) => {
       stdin.off("keypress", onKeypress);
       stdin.setRawMode(previousRawMode);
+      stdin.pause();
+      stdout.write("\n");
       resolve(value);
     };
 
@@ -130,13 +152,13 @@ export async function selectProjectUpdates(candidates, { stdin = process.stdin, 
 
       if (key.name === "up") {
         cursor = Math.max(0, cursor - 1);
-        renderUpdateTable(stdout, stderr, choices, cursor, selected);
+        renderUpdateTable(stdout, stderr, candidates, choices, cursor, selected);
         return;
       }
 
       if (key.name === "down") {
         cursor = Math.min(choices.length - 1, cursor + 1);
-        renderUpdateTable(stdout, stderr, choices, cursor, selected);
+        renderUpdateTable(stdout, stderr, candidates, choices, cursor, selected);
         return;
       }
 
@@ -147,7 +169,7 @@ export async function selectProjectUpdates(candidates, { stdin = process.stdin, 
         } else {
           selected.add(item.relativePath);
         }
-        renderUpdateTable(stdout, stderr, choices, cursor, selected);
+        renderUpdateTable(stdout, stderr, candidates, choices, cursor, selected);
         return;
       }
 
@@ -155,18 +177,61 @@ export async function selectProjectUpdates(candidates, { stdin = process.stdin, 
         for (const choice of choices) {
           selected.add(choice.relativePath);
         }
-        renderUpdateTable(stdout, stderr, choices, cursor, selected);
+        renderUpdateTable(stdout, stderr, candidates, choices, cursor, selected);
         return;
       }
 
       if (text === "n") {
         selected.clear();
-        renderUpdateTable(stdout, stderr, choices, cursor, selected);
+        renderUpdateTable(stdout, stderr, candidates, choices, cursor, selected);
         return;
       }
 
       if (key.name === "return" || key.name === "enter") {
         finish([...selected]);
+      }
+    };
+
+    stdin.on("keypress", onKeypress);
+  });
+}
+
+async function confirmProjectUpdate({ stdin = process.stdin, stdout = process.stdout } = {}) {
+  if (!stdin.isTTY || typeof stdin.setRawMode !== "function") {
+    stdout.write("Run `flai init <path> -u` to choose updates.\n");
+    return false;
+  }
+
+  readline.emitKeypressEvents(stdin);
+  const previousRawMode = Boolean(stdin.isRaw);
+  stdin.setRawMode(true);
+  stdin.resume();
+  stdout.write("Install files can be updated. Open update picker now? [y/N] ");
+
+  return await new Promise((resolve) => {
+    const finish = (value) => {
+      stdin.off("keypress", onKeypress);
+      stdin.setRawMode(previousRawMode);
+      stdin.pause();
+      stdout.write("\n");
+      resolve(value);
+    };
+
+    const onKeypress = (text, key = {}) => {
+      if (key.ctrl && key.name === "c") {
+        finish(false);
+        return;
+      }
+      if (key.name === "return" || key.name === "enter" || key.name === "escape") {
+        finish(false);
+        return;
+      }
+      if (text === "y" || text === "Y") {
+        finish(true);
+        return;
+      }
+      if (text === "n" || text === "N" || key.name === "q") {
+        finish(false);
       }
     };
 
@@ -188,6 +253,7 @@ function parseArgs(argv) {
     phaseValue: undefined,
     force: false,
     update: false,
+    verbose: false,
     confirm: false,
     help: false,
     budget: undefined,
@@ -210,6 +276,8 @@ function parseArgs(argv) {
       args.confirm = true;
     } else if (value === "-u" || value === "--update") {
       args.update = true;
+    } else if (value === "-v" || value === "--verbose") {
+      args.verbose = true;
     } else if (value === "-h" || value === "--help" || value === "help") {
       args.help = true;
     } else if (value.startsWith("-")) {
@@ -265,6 +333,7 @@ Maintenance:
 
 Options:
   --budget N                    Limit printed context size
+  -v, --verbose                 Show changed file paths
   -f                            Force user template updates or uninstall
 `;
 }
@@ -275,6 +344,7 @@ export async function runCli({
   stdout = process.stdout,
   stderr = process.stderr,
   chooseProjectUpdates = selectProjectUpdates,
+  confirmUpdate = confirmProjectUpdate,
 } = {}) {
   const args = parseArgs(argv);
 
@@ -294,22 +364,22 @@ export async function runCli({
   }
 
   if (args.command === "user") {
-    printResult(stdout, "Initialized user .flai data.", await initUser(args));
+    printResult(stdout, "Initialized user .flai data.", await initUser(args), { verbose: args.verbose, stderr });
     return;
   }
 
   if (args.command === "update-user") {
-    printResult(stdout, "Updated user .flai data.", await updateUser(args));
+    printResult(stdout, "Updated user .flai data.", await updateUser(args), { verbose: args.verbose, stderr });
     return;
   }
 
   if (args.command === "self-update") {
-    printResult(stdout, "Updated flai package and user .flai data.", await selfUpdate(args));
+    printResult(stdout, "Updated flai package and user .flai data.", await selfUpdate(args), { verbose: args.verbose, stderr });
     return;
   }
 
   if (args.command === "uninstall-user") {
-    printResult(stdout, "Uninstalled user .flai data.", await uninstallUser(args));
+    printResult(stdout, "Uninstalled user .flai data.", await uninstallUser(args), { verbose: args.verbose, stderr });
     return;
   }
 
@@ -321,11 +391,33 @@ export async function runCli({
       if (selectedUpdatePaths === null) {
         return;
       }
-      printResult(stdout, "Updated project install files.", await initProject({ ...args, selectedUpdatePaths }));
+      if (!selectedUpdatePaths.length) {
+        printResult(stdout, "No project install files updated.", { repoDir: path.resolve(args.repoDir) }, { verbose: args.verbose, stderr });
+        return;
+      }
+      printResult(stdout, "Updated project install files.", await initProject({ ...args, selectedUpdatePaths }), {
+        verbose: args.verbose,
+        stderr,
+      });
       return;
     }
 
-    printResult(stdout, "Initialized project .flai data.", await initProject(args));
+    const result = await initProject(args);
+    printResult(stdout, "Initialized project .flai data.", result, { verbose: args.verbose });
+    if ((result.installSummary?.create || result.installSummary?.update) && (await confirmUpdate({ stdin, stdout, stderr }))) {
+      const candidates = await listProjectUpdateCandidates(args);
+      const selectedUpdatePaths = await chooseProjectUpdates(candidates, { stdin, stdout, stderr });
+      if (selectedUpdatePaths?.length) {
+        printResult(
+          stdout,
+          "Updated project install files.",
+          await initProject({ ...args, update: true, selectedUpdatePaths }),
+          { verbose: args.verbose, stderr },
+        );
+      } else {
+        printResult(stdout, "No project install files updated.", { repoDir: path.resolve(args.repoDir) }, { verbose: args.verbose, stderr });
+      }
+    }
     return;
   }
 

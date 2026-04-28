@@ -45,6 +45,12 @@ async function collectProjectTemplates({ repoDir, options, installOnly = false }
   return templates.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
 }
 
+export async function countIgnoredProjectTemplates(options = {}) {
+  const repoDir = normalize(options.repoDir ?? process.cwd());
+  const templates = await collectProjectTemplates({ repoDir, options });
+  return templates.filter((template) => !isProjectInstallFile(template.relativePath)).length;
+}
+
 export async function listProjectUpdateCandidates(options = {}) {
   const repoDir = normalize(options.repoDir ?? process.cwd());
   const templates = await collectProjectTemplates({ repoDir, options, installOnly: true });
@@ -65,12 +71,19 @@ export async function listProjectUpdateCandidates(options = {}) {
     });
   }
 
+  candidates.summary = {
+    create: candidates.filter((candidate) => candidate.action === "create").length,
+    update: candidates.filter((candidate) => candidate.action === "update").length,
+    same: candidates.filter((candidate) => candidate.action === "same").length,
+    ignored: await countIgnoredProjectTemplates({ ...options, repoDir }),
+  };
+
   return candidates;
 }
 
 export async function initProject(options = {}) {
   const repoDir = normalize(options.repoDir ?? process.cwd());
-  const result = { created: [], updated: [], skipped: [], repoDir };
+  const result = { created: [], updated: [], existing: [], skipped: [], repoDir };
 
   if (options.update) {
     const selected = new Set((options.selectedUpdatePaths ?? []).map(normalizePath));
@@ -96,10 +109,16 @@ export async function initProject(options = {}) {
   }
 
   for (const template of await collectProjectTemplates({ repoDir, options })) {
-    await writeIfMissing(path.join(repoDir, template.relativePath), template.content, result, false);
+    const target = path.join(repoDir, template.relativePath);
+    const beforeCreated = result.created.length;
+    await writeIfMissing(target, template.content, result, false);
+    if (result.created.length === beforeCreated) {
+      result.existing.push(result.skipped.pop());
+    }
   }
 
   await mkdir(path.join(repoDir, ".flai", "tasks"), { recursive: true });
+  result.installSummary = (await listProjectUpdateCandidates({ ...options, repoDir })).summary;
 
   return result;
 }
