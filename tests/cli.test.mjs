@@ -310,6 +310,8 @@ test("runCli task supports create, list, current, start, and finish", async () =
     const tasks = await readdir(tasksDir);
     const taskName = tasks.find((name) => name.endsWith("improve-context"));
     assert.ok(taskName);
+    assert.equal(existsSync(path.join(tasksDir, taskName, "log.md")), true);
+    assert.equal(existsSync(path.join(tasksDir, taskName, "summary.md")), true);
 
     const listStdout = createWritable();
     await runCli({

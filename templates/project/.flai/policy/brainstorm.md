@@ -16,7 +16,11 @@
 - 在 `.flai/conversation.md` 中保持 goal、conclusions、open questions 和 next step。
 - 这些字段变化时，本轮结束前更新 `.flai/conversation.md`。
 - 保持 `.flai/conversation.md` 简洁，只保留高信息量内容。
+- 当候选事项变成可执行工作时，写入或更新 `.flai/issues.md`。
 
+- `tiny`：明确、低风险、只涉及一两个文件的任务。不创建任务文档。只做最小验证。
+- `normal`：范围明确但涉及多个文件，或需要简短计划的任务。需要连续上下文时使用任务 `status.md`。
+- `deep`：需求模糊、高风险、跨层、架构、迁移、安全、权限、公共 API、反复失败的任务。
 - normal/deep 工作在实现前创建或更新任务 `plan.md`。
 
 - 不要写生产代码，除非用户明确确认执行。

@@ -85,6 +85,8 @@ export async function createTask(options = {}) {
     "implement.md": emptyTaskTemplate(title, "Implement"),
     "review.md": emptyTaskTemplate(title, "Review"),
     "decisions.md": emptyTaskTemplate(title, "Decisions"),
+    "log.md": emptyTaskTemplate(title, "Log"),
+    "summary.md": emptyTaskTemplate(title, "Summary"),
   };
 
   for (const [fileName, content] of Object.entries(files)) {
