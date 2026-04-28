@@ -10,6 +10,7 @@ export async function initProject(options = {}) {
   const result = { created: [], skipped: [], repoDir };
   const force = Boolean(options.force);
   const projectTemplateDir = path.join(options.templatesDir, "project");
+  const skillsTemplateDir = path.join(options.templatesDir, "skills");
   const values = {
     projectName: path.basename(repoDir),
     date: new Date().toISOString().slice(0, 10),
@@ -19,6 +20,12 @@ export async function initProject(options = {}) {
   for (const relativePath of await listFilesRecursive(projectTemplateDir)) {
     const content = await readFile(path.join(projectTemplateDir, relativePath), "utf8");
     await writeIfMissing(path.join(repoDir, relativePath), renderTemplate(content, values), result, force);
+  }
+
+  for (const relativePath of await listFilesRecursive(skillsTemplateDir)) {
+    const content = await readFile(path.join(skillsTemplateDir, relativePath), "utf8");
+    await writeIfMissing(path.join(repoDir, ".codex", "skills", relativePath), renderTemplate(content, values), result, force);
+    await writeIfMissing(path.join(repoDir, ".claude", "skills", relativePath), renderTemplate(content, values), result, force);
   }
 
   await mkdir(path.join(repoDir, ".flai", "tasks"), { recursive: true });

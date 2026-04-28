@@ -1,0 +1,4 @@
+interface:
+  display_name: "flai:review"
+  short_description: "Code review with risk and readiness checks"
+  default_prompt: "Use $flai-review to review recent changes for bugs, regressions, missing validation, and release readiness."

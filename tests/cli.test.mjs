@@ -115,6 +115,8 @@ test("initProject creates project docs, hooks, and fallback instructions", async
   const claudeHook = await readFile(path.join(repoDir, ".claude", "hooks", "session-start.mjs"), "utf8");
   const claudePreToolHook = await readFile(path.join(repoDir, ".claude", "hooks", "pre-tool-use.mjs"), "utf8");
   const claudeSettings = await readFile(path.join(repoDir, ".claude", "settings.json"), "utf8");
+  const codexReviewSkill = await readFile(path.join(repoDir, ".codex", "skills", "flai-review", "SKILL.md"), "utf8");
+  const claudeReviewSkill = await readFile(path.join(repoDir, ".claude", "skills", "flai-review", "SKILL.md"), "utf8");
 
   assert.equal(existsSync(path.join(repoDir, ".flai", "project.md")), true);
   assert.equal(existsSync(path.join(repoDir, ".flai", "now.md")), true);
@@ -125,9 +127,11 @@ test("initProject creates project docs, hooks, and fallback instructions", async
   assert.equal(existsSync(path.join(repoDir, ".flai", "failure-patterns.md")), false);
   assert.equal(existsSync(path.join(repoDir, ".codex", "hooks.json")), true);
   assert.equal(existsSync(path.join(repoDir, ".codex", "hooks", "session-start.mjs")), true);
+  assert.equal(existsSync(path.join(repoDir, ".codex", "skills", "flai-review", "agents", "openai.yaml")), true);
   assert.equal(existsSync(path.join(repoDir, ".claude", "settings.json")), true);
   assert.equal(existsSync(path.join(repoDir, ".claude", "hooks", "session-start.mjs")), true);
   assert.equal(existsSync(path.join(repoDir, ".claude", "hooks", "pre-tool-use.mjs")), true);
+  assert.equal(existsSync(path.join(repoDir, ".claude", "skills", "flai-review", "agents", "openai.yaml")), true);
   assert.equal(existsSync(path.join(repoDir, "AGENTS.md")), true);
   assert.equal(existsSync(path.join(repoDir, "CLAUDE.md")), true);
   assert.match(codexHook, /file:\/\/\//);
@@ -137,6 +141,8 @@ test("initProject creates project docs, hooks, and fallback instructions", async
   assert.doesNotMatch(codexHook, /\.flai\/scripts|\.flai\\scripts/);
   assert.doesNotMatch(claudeHook, /\.flai\/scripts|\.flai\\scripts/);
   assert.doesNotMatch(claudePreToolHook, /\.flai\/scripts|\.flai\\scripts/);
+  assert.match(codexReviewSkill, /release readiness/);
+  assert.equal(claudeReviewSkill, codexReviewSkill);
   assert.equal(result.created.length > 6, true);
 });
 
