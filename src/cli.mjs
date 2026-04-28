@@ -236,23 +236,36 @@ function parseArgs(argv) {
 }
 
 function usage() {
-  return `Usage:
-  pnpm flai init [path] [-u]              Initialize project files, or interactively update hooks and skills
-  pnpm flai context [mode] [--budget N]   Print rendered context for startup, brainstorm, implement, review, or debug
-  pnpm flai context [mode] --sources      Print compact source table for a context mode
-  pnpm flai task create "title"           Create a lightweight task
-  pnpm flai task start <name>             Set the current task
-  pnpm flai task list                     List active tasks
-  pnpm flai task current                  Print the current task
-  pnpm flai task finish                   Clear the current task
-  pnpm flai phase current                 Print the current workflow phase
-  pnpm flai phase set <mode>              Set startup, brainstorm, implement, review, or debug
-  pnpm flai phase check                   Check current phase requirements
-  pnpm flai user [path] [-f]              Initialize user-level defaults, usually ~/.flai
-  pnpm flai update-user [path] [-f]       Update managed user defaults from installed templates
-  pnpm flai self-update [path] [-f]       Update the global flai package, then user defaults
-  pnpm flai uninstall-user [path] -f      Remove user-level defaults; requires -f
-  pnpm flai help                          Show this help
+  return `flai
+
+Setup:
+  flai init [path]              Set up flai in a project
+  flai init [path] -u           Update hooks and skills interactively
+  flai user [path]              Set up user preferences
+
+Daily commands:
+  flai context [mode]           Print current AI context
+  flai context [mode] --sources Show context source summary
+  flai task create "title"      Create a task
+  flai task start <name>        Start a task
+  flai task finish              Finish current task
+
+Project state:
+  flai task list                List tasks
+  flai task current             Show current task
+  flai phase current            Show current phase
+  flai phase set <mode>         Set phase: startup, brainstorm, implement, review, debug
+  flai phase check              Check current workflow state
+
+Maintenance:
+  flai update-user [path]       Update user preference templates
+  flai self-update [path]       Update flai and user templates
+  flai uninstall-user [path] -f Remove user preferences
+  flai help                     Show this help
+
+Options:
+  --budget N                    Limit printed context size
+  -f                            Force user template updates or uninstall
 `;
 }
 

@@ -322,13 +322,14 @@ test("runCli prints help for help command", async () => {
     stderr: createWritable().stream,
   });
 
-  assert.match(stdout.output, /pnpm flai init/);
-  assert.match(stdout.output, /Initialize project files/);
-  assert.match(stdout.output, /pnpm flai context \[mode\]/);
-  assert.match(stdout.output, /pnpm flai task list/);
-  assert.match(stdout.output, /Initialize user-level defaults/);
-  assert.match(stdout.output, /Update managed user defaults/);
-  assert.match(stdout.output, /Update the global flai package/);
+  assert.match(stdout.output, /Setup:/);
+  assert.match(stdout.output, /flai init \[path\]/);
+  assert.match(stdout.output, /Update hooks and skills interactively/);
+  assert.match(stdout.output, /Daily commands:/);
+  assert.match(stdout.output, /flai context \[mode\]/);
+  assert.match(stdout.output, /Project state:/);
+  assert.match(stdout.output, /Maintenance:/);
+  assert.match(stdout.output, /Update flai and user templates/);
 });
 
 test("runCli context prints rendered context by default and sources table when requested", async () => {
@@ -500,5 +501,5 @@ test("cli entrypoint runs when invoked through a symlinked path", async () => {
     windowsHide: true,
   });
 
-  assert.match(stdout, /pnpm flai context \[mode\]/);
+  assert.match(stdout, /flai context \[mode\]/);
 });

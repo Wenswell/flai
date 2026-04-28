@@ -31,6 +31,28 @@ flai uninstall-user [path] -f
 flai help
 ```
 
+The same commands grouped by daily use:
+
+```text
+Setup:
+  flai init [path]              Set up flai in a project
+  flai init [path] -u           Update hooks and skills interactively
+  flai user [path]              Set up user preferences
+
+Daily commands:
+  flai context [mode]           Print current AI context
+  flai task create "title"      Create a task
+  flai task start <name>        Start a task
+  flai task finish              Finish current task
+
+Project state:
+  flai task list                List tasks
+  flai task current             Show current task
+  flai phase current            Show current phase
+  flai phase set <mode>         Set phase
+  flai phase check              Check current workflow state
+```
+
 Typical setup:
 
 ```bash
